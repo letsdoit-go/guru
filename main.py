@@ -84,7 +84,18 @@ def main():
         # Initialize Sushi client
         logger.info("Initializing Sushi client")
         sushi_client = SushiClient(SUSHI_ADDRESS)
-        sushi_client.connect()
+        sushi_client.connect() # If Sushi is unavailable, this will wait forever and retry every 5s.
+        version = ''
+        while version == '':
+            assert sushi_client.controller is not None
+            try:
+                version = sushi_client.controller.system.get_sushi_version()
+            except Exception:
+                if not running:
+                    return 1
+                logger.info("Sushi unavailable. Retrying in 5s...")
+                time.sleep(5)
+        logger.info("Connected to Sushi")
 
         # Initialize mappings with Sushi
         if MAPPINGS:

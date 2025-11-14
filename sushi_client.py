@@ -3,6 +3,7 @@ Sushi client wrapper for controlling audio engine parameters via elkpy.
 """
 
 import logging
+import time
 from typing import List
 from elkpy import sushicontroller as sc
 
@@ -29,7 +30,6 @@ class SushiClient:
         """Establish connection to Sushi."""
         logger.info(f"Connecting to Sushi at {self.sushi_address}")
         self.controller = sc.SushiController(self.sushi_address)
-        logger.info("Connected to Sushi")
 
     def disconnect(self) -> None:
         """Close the connection to Sushi."""
