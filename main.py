@@ -75,7 +75,7 @@ def main():
             try:
                 controller_map = pin_client.refresh_all_states()
                 break
-            except Exception as e:
+            except Exception:
                 if not running:
                     return 1
                 logger.info("Pin proxy unavailable. Retrying in 5s...")

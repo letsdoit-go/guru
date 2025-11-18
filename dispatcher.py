@@ -65,6 +65,7 @@ class EventDispatcher:
             event: Event message from Pin Proxy
         """
         event_type = event.WhichOneof("event")
+        logger.info(event)
 
         if event_type == "analog_ev":
             self._handle_analog_event(event.analog_ev)
