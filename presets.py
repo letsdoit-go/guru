@@ -8,7 +8,7 @@ class Control:
         self.callback: Callable
 
     def init(self, sc: SushiController) -> None:
-        self.sc = sc
+        ...
 
 
 class Mapping:
