@@ -6,9 +6,6 @@ import grpc
 import logging
 from typing import Iterator, Dict
 
-import pin_events_pb2
-import pin_events_pb2_grpc
-
 
 logger = logging.getLogger(__name__)
 
@@ -26,12 +23,46 @@ class PinProxyClient:
         self.server_address = server_address
         self.channel = None
         self.stub = None
+        self.pin_events_pb2 = None
+        self.pin_events_pb2_grpc = None
+
+        # Compile and load protobuf modules
+        self._compile_protofile()
+
+    def _compile_protofile(self) -> None:
+        """Compile pin_events.proto and dynamically import the generated modules."""
+        import os
+        import importlib
+        from grpc_tools import protoc
+
+        # Get the directory where the proto file is located
+        proto_dir = os.path.dirname(os.path.abspath(__file__))
+        proto_file = "pin_events.proto"
+        proto_path = os.path.join(proto_dir, proto_file)
+
+        # Compile the proto file
+        result = protoc.main([
+            'grpc_tools.protoc',
+            f'--proto_path={proto_dir}',
+            f'--python_out={proto_dir}',
+            f'--grpc_python_out={proto_dir}',
+            proto_path
+        ])
+
+        if result != 0:
+            raise RuntimeError(f"Failed to compile proto file: {proto_file}")
+
+        # Dynamically import the generated modules
+        self.pin_events_pb2 = importlib.import_module('pin_events_pb2')
+        self.pin_events_pb2_grpc = importlib.import_module('pin_events_pb2_grpc')
+
+        logger.info(f"Compiled and loaded proto file: {proto_file}")
 
     def connect(self) -> None:
         """Establish connection to the gRPC server."""
         logger.info(f"Connecting to Pin Proxy at {self.server_address}")
         self.channel = grpc.insecure_channel(self.server_address)
-        self.stub = pin_events_pb2_grpc.PinProxyServiceStub(self.channel)
+        self.stub = self.pin_events_pb2_grpc.PinProxyServiceStub(self.channel)
         logger.info("Connected to Pin Proxy")
 
     def disconnect(self) -> None:
@@ -53,7 +84,7 @@ class PinProxyClient:
             raise RuntimeError("Not connected to server. Call connect() first.")
 
         logger.info("Requesting controller states via RefreshAllStates()")
-        request = pin_events_pb2.RefreshAllStatesRequest()
+        request = self.pin_events_pb2.RefreshAllStatesRequest()
         response = self.stub.RefreshAllStates(request)
 
         controller_map = {}
@@ -73,7 +104,7 @@ class PinProxyClient:
 
     def subscribe_to_events(
         self, controller_ids: list[int] | None = None
-    ) -> Iterator[pin_events_pb2.Event]:
+    ) -> Iterator:
         """
         Subscribe to hardware events stream.
 
@@ -87,7 +118,7 @@ class PinProxyClient:
         if not self.stub:
             raise RuntimeError("Not connected to server. Call connect() first.")
 
-        request = pin_events_pb2.SubscribeRequest()
+        request = self.pin_events_pb2.SubscribeRequest()
         if controller_ids:
             request.controller_ids.extend(controller_ids)
             logger.info(f"Subscribing to events for controllers: {controller_ids}")
@@ -112,7 +143,7 @@ class PinProxyClient:
         if not self.stub:
             raise RuntimeError("Not connected to server. Call connect() first.")
 
-        request = pin_events_pb2.UpdateLedRequest(led_id=led_id, active=active)
+        request = self.pin_events_pb2.UpdateLedRequest(led_id=led_id, active=active)
         self.stub.UpdateLed(request)
         logger.debug(f"Updated LED {led_id} to {'active' if active else 'inactive'}")
 
