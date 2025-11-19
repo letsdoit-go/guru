@@ -12,7 +12,7 @@ import time
 from typing import Optional
 
 from grpc_client import PinProxyClient
-from sushi_client import SushiClient
+from sushi_client import MappingError, SushiClient
 from dispatcher import EventDispatcher
 from mappings import MAPPINGS
 
@@ -125,6 +125,9 @@ def main():
         logger.info("Interrupted by user")
         return 0
 
+    except MappingError:
+        logger.info("Exiting because of a fatal error.")
+        return 0
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)
         return 1

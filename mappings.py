@@ -12,20 +12,20 @@ from presets import Mapping, SwitchMapping
 MAPPINGS = [
     # Example: Map a pot to a plugin parameter
     Mapping(
-        track_name="guitar",
-        plugin_name="distortion",
+        track_name="main",
+        plugin_name="gain",
         parameter_name="gain",
-        controller_name="pot_1",
+        controller_name="POT1",
         preprocessor=lambda x: x # Optional: transform 0-1 to 0-100
     ),
 
     # Example: Map a switch to bypass parameter
-    SwitchMapping(
-        track_name="guitar",
-        plugin_name="reverb",
-        parameter_name="bypass",
-        controller_name="switch_1",
-        pressed_value=1.0,
-        released_value=0.0
-    ),
+    # SwitchMapping(
+    #     track_name="guitar",
+    #     plugin_name="reverb",
+    #     parameter_name="bypass",
+    #     controller_name="switch_1",
+    #     pressed_value=1.0,
+    #     released_value=0.0
+    # ),
 ]

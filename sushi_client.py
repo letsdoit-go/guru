@@ -6,11 +6,16 @@ import logging
 import time
 from typing import List
 from elkpy import sushicontroller as sc
+from elkpy import sushierrors
 
 from presets import Mapping
 
 
 logger = logging.getLogger(__name__)
+
+
+class MappingError(Exception):
+    pass
 
 
 class SushiClient:
@@ -59,9 +64,12 @@ class SushiClient:
                     f"Mapping {i+1}: {mapping.controller_name} -> "
                     f"{mapping.track_name}/{mapping.plugin_name}/{mapping.parameter_name}"
                 )
+            except sushierrors.SushiNotFoundError:
+                logger.error(f"Failed to initialize mapping {i+1}: No such target in Sushi")
+                raise MappingError("Mapping target not found in Sushi")
             except Exception as e:
                 logger.error(f"Failed to initialize mapping {i+1}: {e}")
-                raise
+                raise MappingError("Initializing mappings failed")
 
         logger.info("All mappings initialized successfully")
 
