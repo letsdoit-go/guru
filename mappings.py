@@ -6,7 +6,10 @@ The controller_name should match the name field from PotState or SwitchState
 returned by RefreshAllStates().
 """
 
-from presets import Mapping, SwitchMapping
+from presets import Mapping, SwitchMapping, Control, PresetManager
+
+
+preset_manager = PresetManager()
 
 # Example mappings - replace with your actual configuration
 MAPPINGS = [
@@ -18,6 +21,11 @@ MAPPINGS = [
         controller_name="POT1",
         preprocessor=lambda x: x # Optional: transform 0-1 to 0-100
     ),
+
+    Control(
+        controller_name='SW1',
+        callback=preset_manager.handle_sw_event
+    )
 
     # Example: Map a switch to bypass parameter
     # SwitchMapping(

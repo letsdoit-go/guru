@@ -2,6 +2,15 @@ from typing import Callable
 from elkpy.sushicontroller import SushiController
 
 
+class Control:
+    def __init__(self):
+        self.controller_name: str
+        self.callback: Callable
+
+    def init(self, sc: SushiController) -> None:
+        self.sc = sc
+
+
 class Mapping:
     def __init__(
         self,
