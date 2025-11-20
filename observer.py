@@ -2,7 +2,7 @@ from typing import Callable
 import logging
 
 
-logger = logging.getLogger('OBSERVER')
+logger = logging.getLogger("OBSERVER")
 
 events = {}
 current_session = None
@@ -15,6 +15,7 @@ def subscribe(event: str, cb: Callable) -> None:
 
 
 def emit(signal: str, *args, **kwargs) -> None:
+    logger.debug(f"Emitting {signal}")
     if not events.get(signal):
         events[signal] = []
         logger.warning(f"Emitting a signal with NO listeners: {signal}")

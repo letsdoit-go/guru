@@ -95,12 +95,3 @@ class SushiClient:
             f"Set parameter: track={track_id}, processor={processor_id}, "
             f"param={parameter_id}, value={value}"
         )
-
-    def __enter__(self):
-        """Context manager entry."""
-        self.connect()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit."""
-        self.disconnect()

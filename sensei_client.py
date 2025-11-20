@@ -131,7 +131,7 @@ class PinProxyClient:
         finally:
             logger.info("Event loop ended")
 
-    def refresh_all_states(self) -> Dict[str, int]:
+    def refresh_all_states(self) -> dict[str, int]:
         """
         Request current state of all controllers and build name->ID mapping.
 
@@ -158,6 +158,7 @@ class PinProxyClient:
             logger.debug(f"Switch: {switch.name} -> ID {switch.id} (active: {switch.active})")
 
         logger.info(f"Discovered {len(controller_map)} controllers")
+        observer.emit("NEW_CTRL_MAP", controller_map)
         return controller_map
 
     def subscribe_to_events(
