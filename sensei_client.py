@@ -4,7 +4,10 @@ gRPC client for connecting to PinProxyService and subscribing to hardware events
 
 import grpc
 import logging
-from typing import Iterator, Dict
+import threading
+from typing import Iterator, Dict, Optional
+
+import observer
 
 
 logger = logging.getLogger(__name__)
@@ -25,6 +28,10 @@ class PinProxyClient:
         self.stub = None
         self.pin_events_pb2 = None
         self.pin_events_pb2_grpc = None
+
+        # Threading attributes
+        self._event_thread: Optional[threading.Thread] = None
+        self._running: bool = False
 
         # Compile and load protobuf modules
         self._compile_protofile()
@@ -69,9 +76,60 @@ class PinProxyClient:
         """Close the gRPC connection."""
         if self.channel:
             logger.info("Disconnecting from Pin Proxy")
+            self.stop()
             self.channel.close()
             self.channel = None
             self.stub = None
+
+    def start(self) -> None:
+        """Start the event subscription thread."""
+        if self._event_thread is not None and self._event_thread.is_alive():
+            logger.warning("Event subscription thread is already running")
+            return
+
+        logger.info("Starting event subscription thread")
+        self._running = True
+        self._event_thread = threading.Thread(target=self._event_loop, daemon=True)
+        self._event_thread.start()
+        logger.info("Event subscription thread started")
+
+    def stop(self) -> None:
+        """Stop the event subscription thread gracefully."""
+        if not self._running:
+            return
+
+        logger.info("Stopping event subscription thread")
+        self._running = False
+
+        if self._event_thread is not None:
+            self._event_thread.join(timeout=5.0)
+            if self._event_thread.is_alive():
+                logger.warning("Event subscription thread did not stop within timeout")
+            else:
+                logger.info("Event subscription thread stopped")
+            self._event_thread = None
+
+    def _event_loop(self) -> None:
+        """
+        Internal event loop that runs in a separate thread.
+        Subscribes to all events and emits them via observer.
+        """
+        try:
+            logger.info("Event loop started, subscribing to all events")
+            for event in self.subscribe_to_events():
+                if not self._running:
+                    logger.info("Event loop stopping (running flag is False)")
+                    break
+
+                # Emit event to observer
+                observer.emit("UiEvent", event)
+
+        except grpc.RpcError as e:
+            logger.error(f"gRPC error in event loop: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error in event loop: {e}", exc_info=True)
+        finally:
+            logger.info("Event loop ended")
 
     def refresh_all_states(self) -> Dict[str, int]:
         """
@@ -147,11 +205,3 @@ class PinProxyClient:
         self.stub.UpdateLed(request)
         logger.debug(f"Updated LED {led_id} to {'active' if active else 'inactive'}")
 
-    def __enter__(self):
-        """Context manager entry."""
-        self.connect()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit."""
-        self.disconnect()

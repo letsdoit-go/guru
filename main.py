@@ -11,7 +11,7 @@ import sys
 import time
 from typing import Optional
 
-from grpc_client import PinProxyClient
+from sensei_client import PinProxyClient
 from sushi_client import MappingError, SushiClient
 from dispatcher import EventDispatcher
 from mappings import MAPPINGS
