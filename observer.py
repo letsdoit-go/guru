@@ -12,6 +12,7 @@ def subscribe(event: str, cb: Callable) -> None:
     if not events.get(event):
         events[event] = []
     events[event].append(cb)
+    logger.debug(f"Registering subscription to {event}")
 
 
 def emit(signal: str, *args, **kwargs) -> None:
@@ -22,7 +23,9 @@ def emit(signal: str, *args, **kwargs) -> None:
     try:
         for cb in events[signal]:
             cb(*args, **kwargs)
-    except KeyError:
+            logger.debug(f"Calling {cb} for signal {signal}")
+    except KeyError as e:
+        print(e)
         logger.info(f"No signal called {signal} exists.")
 
 

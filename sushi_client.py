@@ -9,7 +9,7 @@ from typing import List
 from elkpy import sushicontroller as sc
 from elkpy import sushierrors
 
-from presets import Mapping
+from presets import PluginParameterMapping
 
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,9 @@ class SushiClient:
         Args:
             sushi_address: Address of the Sushi gRPC server (host:port)
         """
-        observer.subscribe("SushiEvent", cb=self._handle_sushi_event)
+        observer.subscribe("SushiPluginEvent", cb=self._handle_sushi_plugin_event)
+        observer.subscribe("SushiTrackEvent", cb=self._handle_sushi_track_event)
+        observer.subscribe("INIT_MAPPING", cb=self._initialize_mappings)
         self.sushi_address = sushi_address
         self.controller = None
 
@@ -56,12 +58,31 @@ class SushiClient:
             logger.info("Disconnecting from Sushi")
             self.controller = None
 
-    def _handle_sushi_event(self, event: dict) -> None:
-        self.set_parameter_value(
-            event["track_id"], event["plugin_id"], event["param_id"], event["value"]
+    def _handle_sushi_plugin_event(self, event: dict) -> None:
+        if not self.controller:
+            raise RuntimeError("Not connected to Sushi. Call connect() first.")
+
+        self.controller.parameters.set_parameter_value(
+            event["plugin_id"], event["param_id"], event["value"]
+        )
+        logger.debug(
+            f"Set parameter: track={event['track_id']}, processor={event['plugin_id']}, "
+            f"param={event['param_id']}, value={event['value']}"
         )
 
-    def initialize_mappings(self, mappings: List[Mapping]) -> None:
+    def _handle_sushi_track_event(self, event: dict) -> None:
+        if not self.controller:
+            raise RuntimeError("Not connected to Sushi. Call connect() first.")
+
+        self.controller.parameters.set_parameter_value(
+            event["track_id"], event["param_id"], event["value"]
+        )
+        logger.debug(
+            f"Set parameter: track={event['track_id']}, "
+            f"param={event['param_id']}, value={event['value']}"
+        )
+
+    def _initialize_mappings(self, mappings: List[PluginParameterMapping]) -> None:
         """
         Initialize all mappings by resolving track/plugin/parameter IDs.
 
@@ -81,7 +102,7 @@ class SushiClient:
                 mapping.init(self.controller)
                 logger.info(
                     f"Mapping {i + 1}: {mapping.controller_name} -> "
-                    f"{mapping.track_name}/{mapping.plugin_name}/{mapping.parameter_name}"
+                    f"{mapping.track_name}/{getattr(mapping, 'plugin_name', '-')}/{mapping.parameter_name}"
                 )
             except sushierrors.SushiNotFoundError:
                 logger.error(
@@ -91,6 +112,7 @@ class SushiClient:
             except Exception as e:
                 logger.error(f"Failed to initialize mapping {i + 1}: {e}")
                 raise MappingError("Initializing mappings failed")
+        observer.emit("MAPPINGS_INITIALIZED")
 
         logger.info("All mappings initialized successfully")
 

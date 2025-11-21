@@ -14,13 +14,13 @@ from typing import Optional
 from sensei_client import PinProxyClient
 from sushi_client import MappingError, SushiClient
 from dispatcher import EventDispatcher
-from mappings import MAPPINGS
+from mappings import MAPPINGS, MappingManager
 
 
 # Configuration
 PIN_PROXY_ADDRESS = "localhost:50051"
 SUSHI_ADDRESS = "localhost:51051"
-LOG_LEVEL = logging.INFO
+LOG_LEVEL = logging.DEBUG
 
 
 # Global flag for graceful shutdown
@@ -67,6 +67,8 @@ def main():
         # Initialize Pin Proxy client
         logger.info("Initializing Pin Proxy client")
         pin_client = PinProxyClient(PIN_PROXY_ADDRESS)
+        mapping_manager = MappingManager()
+
         pin_client.connect()
 
         # Get controller name->ID mapping
@@ -83,32 +85,39 @@ def main():
 
         # Initialize Sushi client
         logger.info("Initializing Sushi client")
-        sushi_client = SushiClient(SUSHI_ADDRESS)
-        sushi_client.connect()  # If Sushi is unavailable, this will wait forever and retry every 5s.
+        pin_client.start()
 
+        sushi_client = SushiClient(SUSHI_ADDRESS)
+        if not sushi_client.connect():
+            sys.exit(1)
+        # If Sushi is unavailable, this will wait forever and retry every 5s.
+        #
         # Initialize mappings with Sushi
+        #
         if MAPPINGS:
             logger.info("Initializing mappings")
-            sushi_client.initialize_mappings(MAPPINGS)
-
-            # Create dispatcher and register mappings
-            dispatcher = EventDispatcher(sushi_client)
-            dispatcher.register_mappings(MAPPINGS, controller_map)
-        else:
-            dispatcher = EventDispatcher(sushi_client)
-            logger.info("No mappings to register")
-
-        # Subscribe to events and start processing
-        logger.info("Starting event subscription")
-        logger.info("Press Ctrl+C to stop")
-
-        for event in pin_client.subscribe_to_events():
-            if not running:
-                logger.info("Stopping event processing")
-                break
-
-            # Dispatch event to Sushi
-            dispatcher.dispatch_event(event)
+            mapping_manager.initialize_mappings(MAPPINGS)
+            mapping_manager.register_mappings(MAPPINGS)
+        #     # Create dispatcher and register mappings
+        #     dispatcher = EventDispatcher(sushi_client)
+        #     dispatcher.register_mappings(MAPPINGS, controller_map)
+        # else:
+        #     dispatcher = EventDispatcher(sushi_client)
+        #     logger.info("No mappings to register")
+        #
+        # # Subscribe to events and start processing
+        # logger.info("Starting event subscription")
+        # logger.info("Press Ctrl+C to stop")
+        #
+        # for event in pin_client.subscribe_to_events():
+        #     if not running:
+        #         logger.info("Stopping event processing")
+        #         break
+        #
+        #     # Dispatch event to Sushi
+        #     dispatcher.dispatch_event(event)
+        while running:
+            time.sleep(1)
 
     except KeyboardInterrupt:
         logger.info("Interrupted by user")

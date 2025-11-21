@@ -6,7 +6,7 @@ import logging
 from typing import Dict, List
 
 import pin_events_pb2
-from presets import Mapping, SwitchMapping
+from mappings import PluginParameterMapping, SwitchMapping
 from sushi_client import SushiClient
 
 
@@ -24,10 +24,12 @@ class EventDispatcher:
             sushi_client: Connected SushiClient instance
         """
         self.sushi_client = sushi_client
-        self.mappings_by_controller_id: Dict[int, Mapping] = {}
+        self.mappings_by_controller_id: Dict[int, PluginParameterMapping] = {}
 
     def register_mappings(
-        self, mappings: List[Mapping], controller_name_map: Dict[str, int]
+        self,
+        mappings: List[PluginParameterMapping],
+        controller_name_map: Dict[str, int],
     ) -> None:
         """
         Register mappings and resolve controller names to IDs.
@@ -56,4 +58,3 @@ class EventDispatcher:
             )
 
         logger.info("All mappings registered successfully")
-

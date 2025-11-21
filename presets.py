@@ -1,7 +1,7 @@
 from typing import Callable
 from elkpy.sushicontroller import SushiController
 
-
+from mappings import PluginParameterMapping
 
 
 class Preset:
@@ -15,5 +15,5 @@ class Preset:
         self.initial_state = initial_state if initial_state else []
         self.mappings = mappings if mappings else []
 
-    def add_mapping(self, mapping: Mapping) -> None:
+    def add_mapping(self, mapping: PluginParameterMapping) -> None:
         self.mappings.append(mapping)

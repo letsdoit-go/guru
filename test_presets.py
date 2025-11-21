@@ -13,15 +13,15 @@ class TestMapping:
 
     def test_mapping_initialization(self):
         """Test that Mapping initializes with correct attributes."""
-        from presets import Mapping
+        from presets import PluginParameterMapping
 
         preprocessor = lambda x: x * 2
-        mapping = Mapping(
+        mapping = PluginParameterMapping(
             track_name="main",
             plugin_name="gain",
             parameter_name="volume",
             controller_name="POT1",
-            preprocessor=preprocessor
+            preprocessor=preprocessor,
         )
 
         assert mapping.track_name == "main"
@@ -32,20 +32,20 @@ class TestMapping:
 
     def test_mapping_initialization_without_preprocessor(self):
         """Test that Mapping can be initialized without preprocessor."""
-        from presets import Mapping
+        from presets import PluginParameterMapping
 
-        mapping = Mapping(
+        mapping = PluginParameterMapping(
             track_name="main",
             plugin_name="gain",
             parameter_name="volume",
-            controller_name="POT1"
+            controller_name="POT1",
         )
 
         assert mapping.preprocessor is None
 
     def test_mapping_init_resolves_ids(self):
         """Test that init() resolves track/plugin/parameter names to IDs."""
-        from presets import Mapping
+        from presets import PluginParameterMapping
 
         # Create mock SushiController
         mock_sc = MagicMock()
@@ -53,11 +53,11 @@ class TestMapping:
         mock_sc.audio_graph.get_processor_id.return_value = 20
         mock_sc.parameters.get_parameter_id.return_value = 30
 
-        mapping = Mapping(
+        mapping = PluginParameterMapping(
             track_name="main",
             plugin_name="gain",
             parameter_name="volume",
-            controller_name="POT1"
+            controller_name="POT1",
         )
 
         # Call init to resolve IDs
@@ -75,14 +75,14 @@ class TestMapping:
 
     def test_mapping_preprocessor_is_callable(self):
         """Test that preprocessor function works correctly."""
-        from presets import Mapping
+        from presets import PluginParameterMapping
 
-        mapping = Mapping(
+        mapping = PluginParameterMapping(
             track_name="main",
             plugin_name="gain",
             parameter_name="volume",
             controller_name="POT1",
-            preprocessor=lambda x: x * 100
+            preprocessor=lambda x: x * 100,
         )
 
         # Test preprocessor
@@ -105,7 +105,7 @@ class TestSwitchMapping:
             controller_name="SW1",
             pressed_value=1.0,
             released_value=0.0,
-            preprocessor=preprocessor
+            preprocessor=preprocessor,
         )
 
         # Check base Mapping attributes
@@ -121,9 +121,9 @@ class TestSwitchMapping:
 
     def test_switch_mapping_inherits_from_mapping(self):
         """Test that SwitchMapping is a subclass of Mapping."""
-        from presets import SwitchMapping, Mapping
+        from presets import SwitchMapping, PluginParameterMapping
 
-        assert issubclass(SwitchMapping, Mapping)
+        assert issubclass(SwitchMapping, PluginParameterMapping)
 
     def test_switch_mapping_init_resolves_ids(self):
         """Test that init() resolves IDs correctly for SwitchMapping."""
@@ -141,7 +141,7 @@ class TestSwitchMapping:
             parameter_name="bypass",
             controller_name="SW2",
             pressed_value=1.0,
-            released_value=0.0
+            released_value=0.0,
         )
 
         # Call init to resolve IDs
@@ -162,7 +162,7 @@ class TestSwitchMapping:
             parameter_name="bypass",
             controller_name="SW1",
             pressed_value=1.0,
-            released_value=0.0
+            released_value=0.0,
         )
 
         assert mapping.preprocessor is None
@@ -223,16 +223,14 @@ class TestPreset:
 
     def test_preset_initialization_with_data(self):
         """Test that Preset initializes with provided data."""
-        from presets import Preset, Mapping
+        from presets import Preset, PluginParameterMapping
 
-        mapping1 = Mapping("main", "gain", "volume", "POT1")
-        mapping2 = Mapping("main", "eq", "bass", "POT2")
+        mapping1 = PluginParameterMapping("main", "gain", "volume", "POT1")
+        mapping2 = PluginParameterMapping("main", "eq", "bass", "POT2")
         initial_state = [{"param": "value1"}, {"param": "value2"}]
 
         preset = Preset(
-            name="Rock",
-            initial_state=initial_state,
-            mappings=[mapping1, mapping2]
+            name="Rock", initial_state=initial_state, mappings=[mapping1, mapping2]
         )
 
         assert preset.name == "Rock"
@@ -243,10 +241,10 @@ class TestPreset:
 
     def test_preset_add_mapping(self):
         """Test that add_mapping() adds a mapping to the preset."""
-        from presets import Preset, Mapping
+        from presets import Preset, PluginParameterMapping
 
         preset = Preset(name="Blues")
-        mapping = Mapping("main", "reverb", "mix", "POT3")
+        mapping = PluginParameterMapping("main", "reverb", "mix", "POT3")
 
         preset.add_mapping(mapping)
 
@@ -255,13 +253,12 @@ class TestPreset:
 
     def test_preset_add_multiple_mappings(self):
         """Test that multiple mappings can be added."""
-        from presets import Preset, Mapping, SwitchMapping
+        from presets import Preset, PluginParameterMapping, SwitchMapping
 
         preset = Preset(name="Jazz")
-        mapping1 = Mapping("main", "compressor", "threshold", "POT1")
+        mapping1 = PluginParameterMapping("main", "compressor", "threshold", "POT1")
         mapping2 = SwitchMapping(
-            "main", "chorus", "bypass", "SW1",
-            pressed_value=1.0, released_value=0.0
+            "main", "chorus", "bypass", "SW1", pressed_value=1.0, released_value=0.0
         )
 
         preset.add_mapping(mapping1)
@@ -277,15 +274,15 @@ class TestMappingIntegration:
 
     def test_mapping_workflow_with_preprocessor(self):
         """Test complete mapping workflow with preprocessing."""
-        from presets import Mapping
+        from presets import PluginParameterMapping
 
         # Create mapping with preprocessor that scales 0-1 to 0-100
-        mapping = Mapping(
+        mapping = PluginParameterMapping(
             track_name="main",
             plugin_name="gain",
             parameter_name="volume",
             controller_name="POT1",
-            preprocessor=lambda x: x * 100
+            preprocessor=lambda x: x * 100,
         )
 
         # Mock SushiController
@@ -318,7 +315,7 @@ class TestMappingIntegration:
             parameter_name="bypass",
             controller_name="SW_DELAY",
             pressed_value=1.0,
-            released_value=0.0
+            released_value=0.0,
         )
 
         # Mock SushiController
@@ -337,20 +334,23 @@ class TestMappingIntegration:
         assert mapping.pressed_value == 1.0
         assert mapping.released_value == 0.0
 
-    @pytest.mark.parametrize("controller_name,expected", [
-        ("POT1", "POT1"),
-        ("SW_MASTER", "SW_MASTER"),
-        ("ENC_TEMPO", "ENC_TEMPO"),
-    ])
+    @pytest.mark.parametrize(
+        "controller_name,expected",
+        [
+            ("POT1", "POT1"),
+            ("SW_MASTER", "SW_MASTER"),
+            ("ENC_TEMPO", "ENC_TEMPO"),
+        ],
+    )
     def test_mapping_with_various_controller_names(self, controller_name, expected):
         """Test that mappings work with various controller name formats."""
-        from presets import Mapping
+        from presets import PluginParameterMapping
 
-        mapping = Mapping(
+        mapping = PluginParameterMapping(
             track_name="main",
             plugin_name="gain",
             parameter_name="volume",
-            controller_name=controller_name
+            controller_name=controller_name,
         )
 
         assert mapping.controller_name == expected

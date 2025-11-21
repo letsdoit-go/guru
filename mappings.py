@@ -23,13 +23,33 @@ class Control:
     def init(self, sc) -> None: ...
 
 
-class Mapping:
+class TrackParameterMapping:
     def __init__(
         self,
         track_name: str,
-        plugin_name: str,
         parameter_name: str,
         controller_name: str,
+        preprocessor: Callable | None = None,
+    ) -> None:
+        self.track_name = track_name
+        self.parameter_name = parameter_name
+        self.controller_name = controller_name
+        self.preprocessor = preprocessor
+
+    def init(self, sc: SushiController) -> None:
+        self.track_id = sc.audio_graph.get_track_id(self.track_name)
+        self.param_id = sc.parameters.get_parameter_id(
+            self.track_id, self.parameter_name
+        )
+
+
+class PluginParameterMapping:
+    def __init__(
+        self,
+        track_name: str,
+        plugin_name: str | None,
+        parameter_name: str,
+        controller_name: str | None = None,
         preprocessor: Callable | None = None,
     ):
         self.track_name = track_name
@@ -46,7 +66,7 @@ class Mapping:
         )
 
 
-class SwitchMapping(Mapping):
+class SwitchMapping(PluginParameterMapping):
     def __init__(
         self,
         track_name: str,
@@ -67,12 +87,17 @@ class SwitchMapping(Mapping):
 # Example mappings - replace with your actual configuration
 MAPPINGS = [
     # Example: Map a pot to a plugin parameter
-    Mapping(
+    PluginParameterMapping(
         track_name="main",
         plugin_name="gain",
         parameter_name="gain",
         controller_name="POT1",
         preprocessor=lambda x: x,  # Optional: transform 0-1 to 0-100
+    ),
+    TrackParameterMapping(
+        track_name="main",
+        parameter_name="gain",
+        controller_name="POT2",
     ),
     Control(controller_name="SW1", cb=None),
     # Example: Map a switch to bypass parameter
@@ -97,19 +122,21 @@ class MappingManager:
             event="MAPPINGS_INITIALIZED", cb=self._handle_mappings_initialized
         )
         self._mappings_initialized: bool = False
-        self.mappings_by_controller_id: dict[int, Mapping] = {}
+        self.mappings_by_controller_id: dict[int, PluginParameterMapping] = {}
         self.controller_map = None
 
-    def _initialize_mappings(self, mappings: list) -> None:
-        observer.emit(signal="INIT_MAPPING", mappings=mappings)
+    def initialize_mappings(self, mappings: list) -> None:
+        map = [m for m in mappings if not isinstance(m, Control)]
+        observer.emit(signal="INIT_MAPPING", mappings=map)
 
     def _update_controller_map(self, controller_map):
         self.controller_map = controller_map
+        logger.debug("Updated contoller map")
 
     def _handle_mappings_initialized(self):
         self._mappings_initialized = True
 
-    def register_mappings(self, mappings: list[Mapping]) -> bool:
+    def register_mappings(self, mappings: list[PluginParameterMapping]) -> bool:
         """
         Register mappings and resolve controller names to IDs.
 
@@ -135,10 +162,15 @@ class MappingManager:
                 )
 
             self.mappings_by_controller_id[controller_id] = mapping
-            logger.info(
-                f"Registered: controller '{mapping.controller_name}' (ID {controller_id}) -> "
-                f"{mapping.track_name}/{mapping.plugin_name}/{mapping.parameter_name}"
-            )
+            if not isinstance(mapping, Control):
+                logger.info(
+                    f"Registered: controller '{mapping.controller_name}' (ID {controller_id}) -> "
+                    f"{mapping.track_name}/{getattr(mapping, 'plugin_name', '-')}/{mapping.parameter_name}"
+                )
+            else:
+                logger.info(
+                    f"Registered: controller '{mapping.controller_name}' -> Control -> cb = {mapping.callback}"
+                )
 
         logger.info("All mappings registered successfully")
         return True
@@ -151,7 +183,6 @@ class MappingManager:
             event: Event message from Pin Proxy
         """
         event_type = event.WhichOneof("event")
-        logger.info(event)
 
         if event_type == "analog_ev":
             self._handle_analog_event(event.analog_ev)
@@ -170,6 +201,9 @@ class MappingManager:
         if not mapping:
             logger.debug(f"No mapping for controller ID {event.controller_id}")
             return
+        if isinstance(mapping, Control):
+            self._handle_control_event(mapping, event)
+            return
 
         # Apply preprocessor if defined
         value = event.value
@@ -181,18 +215,29 @@ class MappingManager:
             f"value={event.value} -> {value}"
         )
 
-        self._emit_sushi_event(
-            track_id=mapping.track_id,
-            plugin_id=mapping.plugin_id,
-            param_id=mapping.param_id,
-            value=value,
-        )
+        if isinstance(mapping, PluginParameterMapping):
+            self._emit_sushi_plugin_event(
+                track_id=mapping.track_id,
+                plugin_id=mapping.plugin_id,
+                param_id=mapping.param_id,
+                value=value,
+            )
+        elif isinstance(mapping, TrackParameterMapping):
+            self._emit_sushi_track_event(
+                track_id=mapping.track_id,
+                param_id=mapping.param_id,
+                value=value,
+            )
 
     def _handle_toggle_event(self, event: pin_events_pb2.ToggleEvent) -> None:
         """Handle toggle/switch events."""
         mapping = self.mappings_by_controller_id.get(event.controller_id)
         if not mapping:
             logger.debug(f"No mapping for controller ID {event.controller_id}")
+            return
+
+        if isinstance(mapping, Control):
+            self._handle_control_event(mapping, event)
             return
 
         # Determine value based on switch state
@@ -206,7 +251,7 @@ class MappingManager:
         if mapping.preprocessor:
             value = mapping.preprocessor(value)
 
-        self._emit_sushi_event(
+        self._emit_sushi_plugin_event(
             track_id=mapping.track_id,
             plugin_id=mapping.plugin_id,
             param_id=mapping.param_id,
@@ -230,6 +275,9 @@ class MappingManager:
         mapping = self.mappings_by_controller_id.get(event.controller_id)
         if not mapping:
             logger.debug(f"No mapping for controller ID {event.controller_id}")
+            return
+        if isinstance(mapping, Control):
+            self._handle_control_event(mapping, event)
             return
 
         # For relative events, we'd need to get the current value and increment/decrement
@@ -255,6 +303,9 @@ class MappingManager:
         if not mapping:
             logger.debug(f"No mapping for controller ID {event.controller_id}")
             return
+        if isinstance(mapping, Control):
+            self._handle_control_event(mapping, event)
+            return
 
         # Basic implementation: use the range value directly
         value = float(event.value)
@@ -263,7 +314,7 @@ class MappingManager:
         if mapping.preprocessor:
             value = mapping.preprocessor(value)
 
-        self._emit_sushi_event(
+        self._emit_sushi_plugin_event(
             track_id=mapping.track_id,
             plugin_id=mapping.plugin_id,
             param_id=mapping.param_id,
@@ -275,15 +326,32 @@ class MappingManager:
             f"range={event.value} -> {value}"
         )
 
-    def _emit_sushi_event(
+    def _handle_control_event(self, mapping, event) -> None:
+        logger.debug(f"Received Control event: {event} -> cb: {mapping.callback}")
+        # TODO: implementation
+
+    def _emit_sushi_plugin_event(
         self, track_id: int, plugin_id: int, param_id: int, value: float
     ) -> None:
         # Send to Sushi
         observer.emit(
-            "SushiEvent",
+            "SushiPluginEvent",
             {
                 "track_id": track_id,
                 "plugin_id": plugin_id,
+                "param_id": param_id,
+                "value": value,
+            },
+        )
+
+    def _emit_sushi_track_event(
+        self, track_id: int, param_id: int, value: float
+    ) -> None:
+        # Send to Sushi
+        observer.emit(
+            "SushiTrackEvent",
+            {
+                "track_id": track_id,
                 "param_id": param_id,
                 "value": value,
             },
