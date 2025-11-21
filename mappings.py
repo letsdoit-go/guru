@@ -85,6 +85,7 @@ class SwitchMapping(PluginParameterMapping):
 
 
 # Example mappings - replace with your actual configuration
+# MAPPINGS = []
 MAPPINGS = [
     # Example: Map a pot to a plugin parameter
     PluginParameterMapping(
@@ -127,6 +128,8 @@ class MappingManager:
 
     def initialize_mappings(self, mappings: list) -> None:
         map = [m for m in mappings if not isinstance(m, Control)]
+        if map == []:
+            logger.warning("There are no mappings specified.")
         observer.emit(signal="INIT_MAPPING", mappings=map)
 
     def _update_controller_map(self, controller_map):

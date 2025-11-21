@@ -49,8 +49,8 @@ def mock_proto_modules():
 @pytest.fixture
 def client(mock_observer, mock_grpc, mock_protoc, mock_proto_modules):
     """Create a PinProxyClient with all dependencies mocked."""
-    from sensei_client import PinProxyClient
-    return PinProxyClient("localhost:50051")
+    from sensei_client import SenseiClient
+    return SenseiClient("localhost:50051")
 
 
 class TestPinProxyClientInitialization:

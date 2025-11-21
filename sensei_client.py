@@ -13,7 +13,7 @@ import observer
 logger = logging.getLogger(__name__)
 
 
-class PinProxyClient:
+class SenseiClient:
     """Client for connecting to the Pin Proxy gRPC service."""
 
     def __init__(self, server_address: str = "localhost:50051"):
@@ -76,8 +76,8 @@ class PinProxyClient:
         """Close the gRPC connection."""
         if self.channel:
             logger.info("Disconnecting from Pin Proxy")
-            self.stop()
             self.channel.close()
+            self.stop()
             self.channel = None
             self.stub = None
 
@@ -102,7 +102,7 @@ class PinProxyClient:
         self._running = False
 
         if self._event_thread is not None:
-            self._event_thread.join(timeout=5.0)
+            self._event_thread.join(timeout=2.0)
             if self._event_thread.is_alive():
                 logger.warning("Event subscription thread did not stop within timeout")
             else:

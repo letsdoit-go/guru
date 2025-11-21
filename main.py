@@ -11,7 +11,7 @@ import sys
 import time
 from typing import Optional
 
-from sensei_client import PinProxyClient
+from sensei_client import SenseiClient
 from sushi_client import MappingError, SushiClient
 from dispatcher import EventDispatcher
 from mappings import MAPPINGS, MappingManager
@@ -54,28 +54,28 @@ def main():
     logger.info("Starting Pedal Glue App")
 
     # Check if mappings are defined
-    if not MAPPINGS:
+    if MAPPINGS == []:
         logger.warning(
             "No mappings defined in mappings.py. "
             "The app will run but won't control any parameters."
         )
 
-    pin_client: Optional[PinProxyClient] = None
+    sensei_client: Optional[SenseiClient] = None
     sushi_client: Optional[SushiClient] = None
 
     try:
         # Initialize Pin Proxy client
         logger.info("Initializing Pin Proxy client")
-        pin_client = PinProxyClient(PIN_PROXY_ADDRESS)
+        sensei_client = SenseiClient(PIN_PROXY_ADDRESS)
         mapping_manager = MappingManager()
 
-        pin_client.connect()
+        sensei_client.connect()
 
         # Get controller name->ID mapping
         logger.info("Fetching controller states")
         while True:
             try:
-                controller_map = pin_client.refresh_all_states()
+                controller_map = sensei_client.refresh_all_states()
                 break
             except Exception:
                 if not running:
@@ -85,44 +85,19 @@ def main():
 
         # Initialize Sushi client
         logger.info("Initializing Sushi client")
-        pin_client.start()
+        sensei_client.start()
 
         sushi_client = SushiClient(SUSHI_ADDRESS)
         if not sushi_client.connect():
             sys.exit(1)
-        # If Sushi is unavailable, this will wait forever and retry every 5s.
-        #
+        
         # Initialize mappings with Sushi
-        #
         if MAPPINGS:
             logger.info("Initializing mappings")
             mapping_manager.initialize_mappings(MAPPINGS)
             mapping_manager.register_mappings(MAPPINGS)
-        #     # Create dispatcher and register mappings
-        #     dispatcher = EventDispatcher(sushi_client)
-        #     dispatcher.register_mappings(MAPPINGS, controller_map)
-        # else:
-        #     dispatcher = EventDispatcher(sushi_client)
-        #     logger.info("No mappings to register")
-        #
-        # # Subscribe to events and start processing
-        # logger.info("Starting event subscription")
-        # logger.info("Press Ctrl+C to stop")
-        #
-        # for event in pin_client.subscribe_to_events():
-        #     if not running:
-        #         logger.info("Stopping event processing")
-        #         break
-        #
-        #     # Dispatch event to Sushi
-        #     dispatcher.dispatch_event(event)
         while running:
             time.sleep(1)
-
-    except KeyboardInterrupt:
-        logger.info("Interrupted by user")
-        return 0
-
     except MappingError:
         logger.info("Exiting because of a fatal error.")
         return 0
@@ -133,8 +108,8 @@ def main():
     finally:
         # Cleanup
         logger.info("Cleaning up connections")
-        if pin_client:
-            pin_client.disconnect()
+        if sensei_client:
+            sensei_client.disconnect()
         if sushi_client:
             sushi_client.disconnect()
         logger.info("Shutdown complete")
