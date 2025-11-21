@@ -84,35 +84,6 @@ class SwitchMapping(PluginParameterMapping):
         self.released_value = released_value
 
 
-# Example mappings - replace with your actual configuration
-# MAPPINGS = []
-MAPPINGS = [
-    # Example: Map a pot to a plugin parameter
-    PluginParameterMapping(
-        track_name="main",
-        plugin_name="gain",
-        parameter_name="gain",
-        controller_name="POT1",
-        preprocessor=lambda x: x,  # Optional: transform 0-1 to 0-100
-    ),
-    TrackParameterMapping(
-        track_name="main",
-        parameter_name="gain",
-        controller_name="POT2",
-    ),
-    Control(controller_name="SW1", cb=None),
-    # Example: Map a switch to bypass parameter
-    # SwitchMapping(
-    #     track_name="guitar",
-    #     plugin_name="reverb",
-    #     parameter_name="bypass",
-    #     controller_name="switch_1",
-    #     pressed_value=1.0,
-    #     released_value=0.0
-    # ),
-]
-
-
 class MappingManager:
     """This class consumes UiEvents and maps them to Sushi controls or other internal settings."""
 
@@ -359,3 +330,25 @@ class MappingManager:
                 "value": value,
             },
         )
+
+# Example mappings - replace with your actual configuration
+# MAPPINGS = []
+MAPPINGS = [
+    # Example: Map a pot to a plugin parameter
+    PluginParameterMapping(
+        track_name="main",
+        plugin_name="gain",
+        parameter_name="gain",
+        controller_name="POT1",
+        preprocessor=lambda x: x,  # Optional: transform 0-1 to 0-100
+    ),
+    TrackParameterMapping(
+        track_name="main",
+        parameter_name="gain",
+        controller_name="POT2",
+        preprocessor=lambda x: x * x
+    ),
+    Control(controller_name="SW1", cb=None),
+]
+
+
