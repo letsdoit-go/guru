@@ -3,14 +3,10 @@ Sushi client wrapper for controlling audio engine parameters via elkpy.
 """
 
 import logging
-import threading
 import time
 import observer
-from typing import List
 from elkpy import sushicontroller as sc
 from elkpy import sushierrors
-
-from presets import PluginParameterMapping
 
 
 logger = logging.getLogger(__name__)
@@ -46,10 +42,8 @@ class SushiClient:
             try:
                 version = self.controller.system.get_sushi_version()
             except Exception:
-                if not running:
-                    return False
-                logger.info("Sushi unavailable. Retrying in 5s...")
-                time.sleep(5)
+                logger.info("Sushi unavailable!")
+                return False
         logger.info("Connected to Sushi")
         return True
 
@@ -90,7 +84,7 @@ class SushiClient:
             f"param={event['param_id']}, value={event['value']}"
         )
 
-    def _initialize_mappings(self, mappings: List[PluginParameterMapping]) -> None:
+    def _initialize_mappings(self, mappings: list) -> None:
         """
         Initialize all mappings by resolving track/plugin/parameter IDs.
 

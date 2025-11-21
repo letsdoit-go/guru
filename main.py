@@ -9,11 +9,9 @@ import logging
 import signal
 import sys
 import time
-from typing import Optional
 
 from sensei_client import SenseiClient
 from sushi_client import MappingError, SushiClient
-from dispatcher import EventDispatcher
 from mappings import MAPPINGS, MappingManager
 
 
@@ -87,6 +85,7 @@ def main():
         logger.info("Initializing Sushi client")
         sushi_client = SushiClient(SUSHI_ADDRESS)
         if not sushi_client.connect():
+            logger.error("Sushi does not seem to be running. Exiting now.")
             sys.exit(1)
 
         # If the app needs to get notifications from Sushi, it should subscribe to those here.
