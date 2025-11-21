@@ -16,13 +16,13 @@ Hardware → Pin Proxy → [UiEvent] → Mapping Manager → [SushiEvent] → Su
 
 ### Core Managers
 
-#### 1. PinProxyClient (sensei_client.py)
+#### 1. SenseiClient (sensei_client.py)
 **Hardware Interface Manager**
 
-Connects to the Pin Proxy gRPC server and streams hardware controller events.
+Connects to the Sensei gRPC server and streams hardware controller events.
 
 **Responsibilities:**
-- Establishes gRPC connection to Pin Proxy server
+- Establishes gRPC connection to Sensei server
 - Runs event subscription in a background thread
 - Discovers available hardware controllers via `RefreshAllStates()`
 - Translates hardware events to internal events
@@ -73,6 +73,7 @@ Wraps elkpy's SushiController and manages communication with the Sushi audio eng
 - Establishes connection to Sushi gRPC server
 - Initializes mappings by resolving string names to numeric IDs
 - Executes parameter changes in Sushi via elkpy
+- [Optional] subscribes to parameter updates from Sushi
 
 **Events Subscribed:**
 - `INIT_MAPPING` - Initializes all mappings with Sushi
@@ -83,12 +84,14 @@ Wraps elkpy's SushiController and manages communication with the Sushi audio eng
 - `MAPPINGS_INITIALIZED` - Signals successful mapping initialization
   - Emitted after all mappings resolve their IDs
   - Payload: None
+- `SushiParameterUpdate` - (only if subscribed to Sushi's notifications)
+  - Emitted when Sushi notifies of a parameter update
 
 ## Event Flow Examples
 
 ### Startup Sequence
 ```
-1. PinProxyClient.refresh_all_states()
+1. SenseiClient.refresh_all_states()
    → emits NEW_CTRL_MAP
    → MappingManager receives controller map
 
@@ -104,8 +107,8 @@ Wraps elkpy's SushiController and manages communication with the Sushi audio eng
 ### Runtime Event Processing
 ```
 1. Hardware pot turned
-   → Pin Proxy sends gRPC event
-   → PinProxyClient receives in background thread
+   → Sensei sends gRPC event
+   → SenseiClient receives in background thread
    → emits UiEvent (AnalogEvent, controller_id=5, value=0.75)
 
 2. MappingManager receives UiEvent
@@ -122,8 +125,8 @@ Wraps elkpy's SushiController and manages communication with the Sushi audio eng
 
 | Event Name | Emitter | Subscribers | Payload | Purpose |
 |------------|---------|-------------|---------|---------|
-| `UiEvent` | PinProxyClient | MappingManager | `pin_events_pb2.Event` | Hardware controller event stream |
-| `NEW_CTRL_MAP` | PinProxyClient | MappingManager | `dict[str, int]` | Controller name→ID mapping |
+| `UiEvent` | SenseiClient | MappingManager | `pin_events_pb2.Event` | Hardware controller event stream |
+| `NEW_CTRL_MAP` | SenseiClient | MappingManager | `dict[str, int]` | Controller name→ID mapping |
 | `INIT_MAPPING` | MappingManager | SushiClient | `list[PluginParameterMapping]` | Request mapping initialization |
 | `MAPPINGS_INITIALIZED` | SushiClient | MappingManager | None | Confirm initialization complete |
 | `SushiPluginEvent` | MappingManager | SushiClient | `dict` (track_id, plugin_id, param_id, value) | Request plugin parameter change |
@@ -141,7 +144,7 @@ uv sync
 uv sync --extra dev
 ```
 
-The gRPC code is automatically compiled from `pin_events.proto` at runtime by `PinProxyClient`.
+The gRPC code is automatically compiled from `pin_events.proto` at runtime by `SenseiClient`.
 
 ## Configuration
 
@@ -199,7 +202,7 @@ uv run python main.py
 ```
 
 The application will:
-1. Initialize PinProxyClient and connect to hardware interface
+1. Initialize SenseiClient and connect to hardware interface
 2. Discover available controllers (`NEW_CTRL_MAP` event)
 3. Initialize SushiClient and connect to audio engine
 4. Initialize all mappings (`INIT_MAPPING` → `MAPPINGS_INITIALIZED` events)
@@ -210,7 +213,7 @@ Press `Ctrl+C` to stop gracefully.
 
 ## Hardware Event Types
 
-The Pin Proxy server can emit four types of hardware events, all delivered via the `UiEvent`:
+The Sensei server can emit four types of hardware events, all delivered via the `UiEvent`:
 
 ### AnalogEvent
 Continuous value from pots, faders, expression pedals.
