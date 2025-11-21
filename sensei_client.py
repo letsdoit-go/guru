@@ -69,6 +69,7 @@ class SenseiClient:
         """Establish connection to the gRPC server."""
         logger.info(f"Connecting to Pin Proxy at {self.server_address}")
         self.channel = grpc.insecure_channel(self.server_address)
+        assert self.pin_events_pb2_grpc is not None
         self.stub = self.pin_events_pb2_grpc.PinProxyServiceStub(self.channel)
         logger.info("Connected to Pin Proxy")
 
@@ -131,7 +132,7 @@ class SenseiClient:
         finally:
             logger.info("Event loop ended")
 
-    def refresh_all_states(self) -> dict[str, int]:
+    def refresh_all_states(self) -> None:
         """
         Request current state of all controllers and build name->ID mapping.
 
@@ -142,6 +143,7 @@ class SenseiClient:
             raise RuntimeError("Not connected to server. Call connect() first.")
 
         logger.info("Requesting controller states via RefreshAllStates()")
+        assert self.pin_events_pb2 is not None
         request = self.pin_events_pb2.RefreshAllStatesRequest()
         response = self.stub.RefreshAllStates(request)
 
@@ -159,7 +161,6 @@ class SenseiClient:
 
         logger.info(f"Discovered {len(controller_map)} controllers")
         observer.emit("NEW_CTRL_MAP", controller_map)
-        return controller_map
 
     def subscribe_to_events(
         self, controller_ids: list[int] | None = None
@@ -177,6 +178,7 @@ class SenseiClient:
         if not self.stub:
             raise RuntimeError("Not connected to server. Call connect() first.")
 
+        assert self.pin_events_pb2 is not None
         request = self.pin_events_pb2.SubscribeRequest()
         if controller_ids:
             request.controller_ids.extend(controller_ids)
@@ -202,6 +204,7 @@ class SenseiClient:
         if not self.stub:
             raise RuntimeError("Not connected to server. Call connect() first.")
 
+        assert self.pin_events_pb2 is not None
         request = self.pin_events_pb2.UpdateLedRequest(led_id=led_id, active=active)
         self.stub.UpdateLed(request)
         logger.debug(f"Updated LED {led_id} to {'active' if active else 'inactive'}")

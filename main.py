@@ -18,7 +18,7 @@ from mappings import MAPPINGS, MappingManager
 
 
 # Configuration
-PIN_PROXY_ADDRESS = "localhost:50051"
+SENSEI_ADDRESS = "localhost:50051"
 SUSHI_ADDRESS = "localhost:51051"
 LOG_LEVEL = logging.DEBUG
 
@@ -60,22 +60,21 @@ def main():
             "The app will run but won't control any parameters."
         )
 
-    sensei_client: Optional[SenseiClient] = None
-    sushi_client: Optional[SushiClient] = None
-
     try:
-        # Initialize Pin Proxy client
-        logger.info("Initializing Pin Proxy client")
-        sensei_client = SenseiClient(PIN_PROXY_ADDRESS)
+        # Initialize Sensei client
+        logger.info("Initializing Sensei client")
+        sensei_client = SenseiClient(SENSEI_ADDRESS)
+        sensei_client.connect()
+        sensei_client.start() # Starts the listening thread
+
+        # MappingManager must exist before SenseiClient.refresh_all_states
         mapping_manager = MappingManager()
 
-        sensei_client.connect()
-
-        # Get controller name->ID mapping
+        # Get controller name->ID
         logger.info("Fetching controller states")
         while True:
             try:
-                controller_map = sensei_client.refresh_all_states()
+                sensei_client.refresh_all_states()
                 break
             except Exception:
                 if not running:
@@ -83,13 +82,15 @@ def main():
                 logger.info("Pin proxy unavailable. Retrying in 5s...")
                 time.sleep(5)
 
+
         # Initialize Sushi client
         logger.info("Initializing Sushi client")
-        sensei_client.start()
-
         sushi_client = SushiClient(SUSHI_ADDRESS)
         if not sushi_client.connect():
             sys.exit(1)
+
+        # If the app needs to get notifications from Sushi, it should subscribe to those here.
+        sushi_client.subscribe_to_parameter_updates()
         
         # Initialize mappings with Sushi
         if MAPPINGS:

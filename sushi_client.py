@@ -3,6 +3,7 @@ Sushi client wrapper for controlling audio engine parameters via elkpy.
 """
 
 import logging
+import threading
 import time
 import observer
 from typing import List
@@ -57,6 +58,13 @@ class SushiClient:
         if self.controller:
             logger.info("Disconnecting from Sushi")
             self.controller = None
+
+    def subscribe_to_parameter_updates(self):
+        assert self.controller is not None
+        self.controller.notifications.subscribe_to_parameter_updates(cb=self._handle_param_update_notification)
+
+    def _handle_param_update_notification(self, notif) -> None:
+        observer.emit("SushiParameterUpdate", notif)
 
     def _handle_sushi_plugin_event(self, event: dict) -> None:
         if not self.controller:

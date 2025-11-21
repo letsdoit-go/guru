@@ -150,7 +150,7 @@ The gRPC code is automatically compiled from `pin_events.proto` at runtime by `P
 Edit `main.py` to configure connection addresses:
 
 ```python
-PIN_PROXY_ADDRESS = "localhost:50051"  # Pin Proxy gRPC server
+SENSEI_ADDRESS = "localhost:50051"  # Pin Proxy gRPC server
 SUSHI_ADDRESS = "localhost:51051"       # Sushi gRPC server
 LOG_LEVEL = logging.INFO
 ```
