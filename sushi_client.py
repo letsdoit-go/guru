@@ -108,7 +108,7 @@ class SushiClient:
                 )
             except sushierrors.SushiNotFoundError:
                 logger.error(
-                    f"Failed to initialize mapping {i + 1}: No such target in Sushi"
+                    f"Failed to initialize mapping {i + 1}: No such target in Sushi! Are your mappings aligned with Sushi's config?"
                 )
                 raise MappingError("Mapping target not found in Sushi")
             except Exception as e:
