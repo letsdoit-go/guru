@@ -28,6 +28,7 @@ class SushiClient:
         """
         observer.subscribe("SushiPluginEvent", cb=self._handle_sushi_plugin_event)
         observer.subscribe("SushiTrackEvent", cb=self._handle_sushi_track_event)
+        observer.subscribe("PluginBypassEvent", cb=self._handle_plugin_bypass_event)
         observer.subscribe("INIT_MAPPING", cb=self._initialize_mappings)
         self.sushi_address = sushi_address
         self.controller = None
@@ -55,7 +56,9 @@ class SushiClient:
 
     def subscribe_to_parameter_updates(self):
         assert self.controller is not None
-        self.controller.notifications.subscribe_to_parameter_updates(cb=self._handle_param_update_notification)
+        self.controller.notifications.subscribe_to_parameter_updates(
+            cb=self._handle_param_update_notification
+        )
 
     def _handle_param_update_notification(self, notif) -> None:
         observer.emit("SushiParameterUpdate", notif)
@@ -84,6 +87,17 @@ class SushiClient:
             f"param={event['param_id']}, value={event['value']}"
         )
 
+    def _handle_plugin_bypass_event(self, event: dict) -> None:
+        if not self.controller:
+            raise RuntimeError("Not connected to Sushi. Call connect() first.")
+
+        current_state = self.controller.audio_graph.get_processor_bypass_state(
+            event["plugin_id"]
+        )
+        self.controller.audio_graph.set_processor_bypass_state(
+            event["plugin_id"], not current_state
+        )
+
     def _initialize_mappings(self, mappings: list) -> None:
         """
         Initialize all mappings by resolving track/plugin/parameter IDs.
@@ -104,7 +118,7 @@ class SushiClient:
                 mapping.init(self.controller)
                 logger.info(
                     f"Mapping {i + 1}: {mapping.controller_name} -> "
-                    f"{mapping.track_name}/{getattr(mapping, 'plugin_name', '-')}/{mapping.parameter_name}"
+                    f"{getattr(mapping, 'track_name', '')}/{getattr(mapping, 'plugin_name', '-')}/{getattr(mapping, 'parameter_name', 'BYPASS')}"
                 )
             except sushierrors.SushiNotFoundError:
                 logger.error(

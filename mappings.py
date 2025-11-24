@@ -84,6 +84,21 @@ class SwitchMapping(PluginParameterMapping):
         self.released_value = released_value
 
 
+class BypassMapping(PluginParameterMapping):
+    def __init__(
+        self,
+        plugin_name: str,
+        controller_name: str,
+        preprocessor: Callable | None = None,
+    ):
+        self.plugin_name = plugin_name
+        self.controller_name = controller_name
+        self.preprocessor = preprocessor
+
+    def init(self, sc: SushiController) -> None:
+        self.plugin_id = sc.audio_graph.get_processor_id(self.plugin_name)
+
+
 class MappingManager:
     """This class consumes UiEvents and maps them to Sushi controls or other internal settings."""
 
@@ -139,22 +154,22 @@ class MappingManager:
             if not isinstance(mapping, Control):
                 logger.info(
                     f"Registered: controller '{mapping.controller_name}' (ID {controller_id}) -> "
-                    f"{mapping.track_name}/{getattr(mapping, 'plugin_name', '-')}/{mapping.parameter_name}"
+                    f"{getattr(mapping, 'track_name', '')}/{getattr(mapping, 'plugin_name', '-')}/{getattr(mapping, 'parameter_name', 'BYPASS')}"
                 )
             else:
                 logger.info(
-                    f"Registered: controller '{mapping.controller_name}' -> Control -> cb = {mapping.callback}"
+                    f"registered: controller '{mapping.controller_name}' -> control -> cb = {mapping.callback}"
                 )
 
-        logger.info("All mappings registered successfully")
+        logger.info("all mappings registered successfully")
         return True
 
     def _dispatch_ui_event(self, event: pin_events_pb2.Event) -> None:
         """
-        Process an incoming event and route it to the appropriate Sushi parameter.
+        process an incoming event and route it to the appropriate sushi parameter.
 
-        Args:
-            event: Event message from Pin Proxy
+        args:
+            event: event message from pin proxy
         """
         event_type = event.WhichOneof("event")
 
@@ -167,25 +182,25 @@ class MappingManager:
         elif event_type == "range_ev":
             self._handle_range_event(event.range_ev)
         else:
-            logger.warning(f"Unknown event type: {event_type}")
+            logger.warning(f"unknown event type: {event_type}")
 
     def _handle_analog_event(self, event: pin_events_pb2.AnalogEvent) -> None:
-        """Handle analog controller events (pots, faders)."""
+        """handle analog controller events (pots, faders)."""
         mapping = self.mappings_by_controller_id.get(event.controller_id)
         if not mapping:
-            logger.debug(f"No mapping for controller ID {event.controller_id}")
+            logger.debug(f"no mapping for controller id {event.controller_id}")
             return
         if isinstance(mapping, Control):
             self._handle_control_event(mapping, event)
             return
 
-        # Apply preprocessor if defined
+        # apply preprocessor if defined
         value = event.value
         if mapping.preprocessor:
             value = mapping.preprocessor(value)
 
         logger.debug(
-            f"Analog event: controller={event.controller_id}, "
+            f"analog event: controller={event.controller_id}, "
             f"value={event.value} -> {value}"
         )
 
@@ -204,24 +219,28 @@ class MappingManager:
             )
 
     def _handle_toggle_event(self, event: pin_events_pb2.ToggleEvent) -> None:
-        """Handle toggle/switch events."""
+        """handle toggle/switch events."""
         mapping = self.mappings_by_controller_id.get(event.controller_id)
         if not mapping:
-            logger.debug(f"No mapping for controller ID {event.controller_id}")
+            logger.debug(f"no mapping for controller id {event.controller_id}")
             return
 
         if isinstance(mapping, Control):
             self._handle_control_event(mapping, event)
             return
 
-        # Determine value based on switch state
+        if isinstance(mapping, BypassMapping):
+            self._handle_bypass_event(mapping, event)
+            return
+
+        # determine value based on switch state
         if isinstance(mapping, SwitchMapping):
             value = mapping.pressed_value if event.value else mapping.released_value
         else:
-            # For regular mappings, treat as binary 1.0/0.0
+            # for regular mappings, treat as binary 1.0/0.0
             value = 1.0 if event.value else 0.0
 
-        # Apply preprocessor if defined
+        # apply preprocessor if defined
         if mapping.preprocessor:
             value = mapping.preprocessor(value)
 
@@ -233,35 +252,35 @@ class MappingManager:
         )
 
         logger.debug(
-            f"Toggle event: controller={event.controller_id}, "
+            f"toggle event: controller={event.controller_id}, "
             f"pressed={event.value} -> {value}"
         )
 
     def _handle_relative_event(self, event: pin_events_pb2.RelativeEvent) -> None:
         """
-        Handle relative events (encoders).
+        handle relative events (encoders).
 
-        Note: This is a basic implementation. For production use, you may want to:
-        - Track current parameter values
-        - Apply scaling/acceleration
-        - Clamp values to parameter ranges
+        note: this is a basic implementation. for production use, you may want to:
+        - track current parameter values
+        - apply scaling/acceleration
+        - clamp values to parameter ranges
         """
         mapping = self.mappings_by_controller_id.get(event.controller_id)
         if not mapping:
-            logger.debug(f"No mapping for controller ID {event.controller_id}")
+            logger.debug(f"no mapping for controller id {event.controller_id}")
             return
         if isinstance(mapping, Control):
             self._handle_control_event(mapping, event)
             return
 
-        # For relative events, we'd need to get the current value and increment/decrement
-        # This requires additional state tracking and parameter info
+        # for relative events, we'd need to get the current value and increment/decrement
+        # this requires additional state tracking and parameter info
         logger.warning(
-            f"Relative event handling not fully implemented for controller {event.controller_id}. "
-            f"Delta: {event.value}"
+            f"relative event handling not fully implemented for controller {event.controller_id}. "
+            f"delta: {event.value}"
         )
 
-        # TODO: Implement relative value changes
+        # todo: implement relative value changes
         # current_value = get_current_parameter_value(...)
         # new_value = current_value + (event.value * step_size)
         # new_value = clamp(new_value, param_min, param_max)
@@ -269,22 +288,22 @@ class MappingManager:
 
     def _handle_range_event(self, event: pin_events_pb2.RangeEvent) -> None:
         """
-        Handle range events (discrete position controllers).
+        handle range events (discrete position controllers).
 
-        Maps discrete range values to parameter values.
+        maps discrete range values to parameter values.
         """
         mapping = self.mappings_by_controller_id.get(event.controller_id)
         if not mapping:
-            logger.debug(f"No mapping for controller ID {event.controller_id}")
+            logger.debug(f"no mapping for controller id {event.controller_id}")
             return
         if isinstance(mapping, Control):
             self._handle_control_event(mapping, event)
             return
 
-        # Basic implementation: use the range value directly
+        # basic implementation: use the range value directly
         value = float(event.value)
 
-        # Apply preprocessor if defined
+        # apply preprocessor if defined
         if mapping.preprocessor:
             value = mapping.preprocessor(value)
 
@@ -296,18 +315,22 @@ class MappingManager:
         )
 
         logger.debug(
-            f"Range event: controller={event.controller_id}, "
+            f"range event: controller={event.controller_id}, "
             f"range={event.value} -> {value}"
         )
 
     def _handle_control_event(self, mapping, event) -> None:
-        logger.debug(f"Received Control event: {event} -> cb: {mapping.callback}")
-        # TODO: implementation
+        logger.debug(f"received control event: {event} -> cb: {mapping.callback}")
+        # todo: implementation
+
+    def _handle_bypass_event(self, mapping, event) -> None:
+        logger.debug(f"Toggling bypass state for plugin {mapping.controller_name}")
+        self._emit_sushi_bypass_event(mapping.plugin_id)
 
     def _emit_sushi_plugin_event(
         self, track_id: int, plugin_id: int, param_id: int, value: float
     ) -> None:
-        # Send to Sushi
+        # send to sushi
         observer.emit(
             "SushiPluginEvent",
             {
@@ -321,7 +344,7 @@ class MappingManager:
     def _emit_sushi_track_event(
         self, track_id: int, param_id: int, value: float
     ) -> None:
-        # Send to Sushi
+        # send to sushi
         observer.emit(
             "SushiTrackEvent",
             {
@@ -331,8 +354,12 @@ class MappingManager:
             },
         )
 
-# Example mappings - replace with your actual configuration
-# MAPPINGS = []
+    def _emit_sushi_bypass_event(self, plugin_id: int) -> None:
+        observer.emit("PluginBypassEvent", {"plugin_id": plugin_id})
+
+
+# example mappings - replace with your actual configuration
+# mappings = []
 MAPPINGS = [
     # Example: Map a pot to a plugin parameter
     PluginParameterMapping(
@@ -346,9 +373,8 @@ MAPPINGS = [
         track_name="main",
         parameter_name="gain",
         controller_name="POT2",
-        preprocessor=lambda x: x * x
+        preprocessor=lambda x: x * x,
     ),
     Control(controller_name="SW1", cb=None),
+    BypassMapping(plugin_name="passthrough", controller_name="SW2"),
 ]
-
-
