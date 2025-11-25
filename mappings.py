@@ -104,9 +104,9 @@ class MappingManager:
 
     def __init__(self) -> None:
         observer.subscribe(event="UiEvent", cb=self._dispatch_ui_event)
-        observer.subscribe(event="NEW_CTRL_MAP", cb=self._update_controller_map)
+        observer.subscribe(event="NewControllerMap", cb=self._update_controller_map)
         observer.subscribe(
-            event="MAPPINGS_INITIALIZED", cb=self._handle_mappings_initialized
+            event="MappingsInitialized", cb=self._handle_mappings_initialized
         )
         self._mappings_initialized: bool = False
         self.mappings_by_controller_id: dict[int, PluginParameterMapping] = {}
@@ -116,7 +116,7 @@ class MappingManager:
         map = [m for m in mappings if not isinstance(m, Control)]
         if map == []:
             logger.warning("There are no mappings specified.")
-        observer.emit(signal="INIT_MAPPING", mappings=map)
+        observer.emit(signal="InitMapping", mappings=map)
 
     def _update_controller_map(self, controller_map):
         self.controller_map = controller_map

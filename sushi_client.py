@@ -29,7 +29,7 @@ class SushiClient:
         observer.subscribe("SushiPluginEvent", cb=self._handle_sushi_plugin_event)
         observer.subscribe("SushiTrackEvent", cb=self._handle_sushi_track_event)
         observer.subscribe("PluginBypassEvent", cb=self._handle_plugin_bypass_event)
-        observer.subscribe("INIT_MAPPING", cb=self._initialize_mappings)
+        observer.subscribe("InitMapping", cb=self._initialize_mappings)
         self.sushi_address = sushi_address
         self.controller = None
 
@@ -128,7 +128,7 @@ class SushiClient:
             except Exception as e:
                 logger.error(f"Failed to initialize mapping {i + 1}: {e}")
                 raise MappingError("Initializing mappings failed")
-        observer.emit("MAPPINGS_INITIALIZED")
+        observer.emit("MappingsInitialized")
 
         logger.info("All mappings initialized successfully")
 

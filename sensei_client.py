@@ -160,7 +160,7 @@ class SenseiClient:
             logger.debug(f"Switch: {switch.name} -> ID {switch.id} (active: {switch.active})")
 
         logger.info(f"Discovered {len(controller_map)} controllers")
-        observer.emit("NEW_CTRL_MAP", controller_map)
+        observer.emit("NewControllerMap", controller_map)
 
     def subscribe_to_events(
         self, controller_ids: list[int] | None = None
