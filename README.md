@@ -11,7 +11,7 @@ All communication between managers happens through an internal pub/sub event sys
 ```
 Hardware → Pin Proxy → [UiEvent] → Mapping Manager → [SushiEvent] → Sushi Client → Audio Engine
                 ↓                          ↓                  ↓
-            [NEW_CTRL_MAP]          [INIT_MAPPING]    [MAPPINGS_INITIALIZED]
+            [NewControllerMap]          [InitMapping]    [MappingsInitialized]
 ```
 
 ### Core Managers
@@ -31,7 +31,7 @@ Connects to the Sensei gRPC server and streams hardware controller events.
 - `UiEvent` - Hardware controller events (analog, toggle, relative, range)
   - Emitted continuously from background thread as hardware events occur
   - Payload: `pin_events_pb2.Event` (contains controller_id, timestamp, value)
-- `NEW_CTRL_MAP` - Controller discovery results
+- `NewControllerMap` - Controller discovery results
   - Emitted once after `refresh_all_states()` completes
   - Payload: `dict[str, int]` mapping controller names to IDs
 
@@ -50,11 +50,11 @@ Central hub that routes hardware events to Sushi parameters based on user-define
 
 **Events Subscribed:**
 - `UiEvent` - Processes hardware events and routes to Sushi
-- `NEW_CTRL_MAP` - Updates internal controller name→ID mapping
-- `MAPPINGS_INITIALIZED` - Confirms Sushi initialization completed
+- `NewControllerMap` - Updates internal controller name→ID mapping
+- `MappingsInitialized` - Confirms Sushi initialization completed
 
 **Events Emitted:**
-- `INIT_MAPPING` - Requests Sushi to initialize mappings
+- `InitMapping` - Requests Sushi to initialize mappings
   - Emitted during startup after controller discovery
   - Payload: `list[PluginParameterMapping]` to be initialized
 - `SushiPluginEvent` - Requests plugin parameter change
@@ -76,12 +76,12 @@ Wraps elkpy's SushiController and manages communication with the Sushi audio eng
 - [Optional] subscribes to parameter updates from Sushi
 
 **Events Subscribed:**
-- `INIT_MAPPING` - Initializes all mappings with Sushi
+- `InitMapping` - Initializes all mappings with Sushi
 - `SushiPluginEvent` - Sets plugin parameter values
 - `SushiTrackEvent` - Sets track parameter values
 
 **Events Emitted:**
-- `MAPPINGS_INITIALIZED` - Signals successful mapping initialization
+- `MappingsInitialized` - Signals successful mapping initialization
   - Emitted after all mappings resolve their IDs
   - Payload: None
 - `SushiParameterUpdate` - (only if subscribed to Sushi's notifications)
@@ -92,15 +92,15 @@ Wraps elkpy's SushiController and manages communication with the Sushi audio eng
 ### Startup Sequence
 ```
 1. SenseiClient.refresh_all_states()
-   → emits NEW_CTRL_MAP
+   → emits NewControllerMap
    → MappingManager receives controller map
 
 2. MappingManager.initialize_mappings()
-   → emits INIT_MAPPING
+   → emits InitMapping
    → SushiClient resolves track/plugin/parameter names to IDs
 
 3. SushiClient completes initialization
-   → emits MAPPINGS_INITIALIZED
+   → emits MappingsInitialized
    → MappingManager confirms ready state
 ```
 
@@ -126,9 +126,9 @@ Wraps elkpy's SushiController and manages communication with the Sushi audio eng
 | Event Name | Emitter | Subscribers | Payload | Purpose |
 |------------|---------|-------------|---------|---------|
 | `UiEvent` | SenseiClient | MappingManager | `pin_events_pb2.Event` | Hardware controller event stream |
-| `NEW_CTRL_MAP` | SenseiClient | MappingManager | `dict[str, int]` | Controller name→ID mapping |
-| `INIT_MAPPING` | MappingManager | SushiClient | `list[PluginParameterMapping]` | Request mapping initialization |
-| `MAPPINGS_INITIALIZED` | SushiClient | MappingManager | None | Confirm initialization complete |
+| `NewControllerMap` | SenseiClient | MappingManager | `dict[str, int]` | Controller name→ID mapping |
+| `InitMapping` | MappingManager | SushiClient | `list[PluginParameterMapping]` | Request mapping initialization |
+| `MappingsInitialized` | SushiClient | MappingManager | None | Confirm initialization complete |
 | `SushiPluginEvent` | MappingManager | SushiClient | `dict` (track_id, plugin_id, param_id, value) | Request plugin parameter change |
 | `SushiTrackEvent` | MappingManager | SushiClient | `dict` (track_id, param_id, value) | Request track parameter change |
 
@@ -203,9 +203,9 @@ uv run python main.py
 
 The application will:
 1. Initialize SenseiClient and connect to hardware interface
-2. Discover available controllers (`NEW_CTRL_MAP` event)
+2. Discover available controllers (`NewControllerMap` event)
 3. Initialize SushiClient and connect to audio engine
-4. Initialize all mappings (`INIT_MAPPING` → `MAPPINGS_INITIALIZED` events)
+4. Initialize all mappings (`InitMapping` → `MappingsInitialized` events)
 5. Start background thread subscribing to hardware events
 6. Process events in real-time through the event system
 
@@ -301,17 +301,17 @@ def _handle_led_update(self, led_id: int, active: bool):
 
 ### "Controller 'POT1' not found"
 - The controller name in your mapping doesn't match hardware
-- Check logs for `NEW_CTRL_MAP` event showing available controllers
+- Check logs for `NewControllerMap` event showing available controllers
 - Verify Pin Proxy server is running and controllers are connected
 
 ### "Failed to initialize mapping"
 - Track, plugin, or parameter name doesn't exist in Sushi
-- Review `INIT_MAPPING` event in logs showing which mapping failed
+- Review `InitMapping` event in logs showing which mapping failed
 - Verify Sushi is running and accessible
 
 ### Events not processing
 - Check that MappingManager subscribed to `UiEvent` (logged at startup)
-- Verify `MAPPINGS_INITIALIZED` event was emitted
+- Verify `MappingsInitialized` event was emitted
 - Enable `DEBUG` logging to see event flow through observer
 
 ## Project Structure

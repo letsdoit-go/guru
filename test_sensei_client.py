@@ -137,7 +137,7 @@ class TestRefreshAllStates:
         assert result == {"POT1": 1, "SW1": 2}
 
     def test_refresh_all_states_emits_new_ctrl_map(self, mock_observer, client):
-        """Test that refresh_all_states() emits NEW_CTRL_MAP event."""
+        """Test that refresh_all_states() emits NewControllerMap event."""
         # Create mock response
         mock_response = MagicMock()
         mock_pot1 = MagicMock(name="POT1", id=1, normalized_value=0.5)
@@ -149,9 +149,9 @@ class TestRefreshAllStates:
 
         result = client.refresh_all_states()
 
-        # Verify observer.emit was called with NEW_CTRL_MAP
+        # Verify observer.emit was called with NewControllerMap
         expected_map = {"POT1": 1}
-        mock_observer.emit.assert_called_once_with("NEW_CTRL_MAP", expected_map)
+        mock_observer.emit.assert_called_once_with("NewControllerMap", expected_map)
 
     def test_refresh_all_states_raises_if_not_connected(self, client):
         """Test that refresh_all_states() raises error if not connected."""
