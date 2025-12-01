@@ -397,6 +397,5 @@ MAPPINGS = [
         controller_name="POT5",
         preprocessor=lambda x: x,  # Optional: transform 0-1 to 0-100
     ),
-    Control(controller_name="SW1", cb=None),
-    BypassMapping(plugin_name="passthrough", controller_name="SW2"),
+    BypassMapping(plugin_name="Guvnor", controller_name="SW1"),
 ]
