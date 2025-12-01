@@ -363,17 +363,39 @@ class MappingManager:
 MAPPINGS = [
     # Example: Map a pot to a plugin parameter
     PluginParameterMapping(
-        track_name="main",
-        plugin_name="gain",
-        parameter_name="gain",
+        track_name="TRACK",
+        plugin_name="Guvnor",
+        parameter_name="GAIN",
         controller_name="POT1",
         preprocessor=lambda x: x,  # Optional: transform 0-1 to 0-100
     ),
-    TrackParameterMapping(
-        track_name="main",
-        parameter_name="gain",
+    PluginParameterMapping(
+        track_name="TRACK",
+        plugin_name="Guvnor",
+        parameter_name="BASS",
         controller_name="POT2",
-        preprocessor=lambda x: x * x,
+        preprocessor=lambda x: x,  # Optional: transform 0-1 to 0-100
+    ),
+    PluginParameterMapping(
+        track_name="TRACK",
+        plugin_name="Guvnor",
+        parameter_name="MID",
+        controller_name="POT3",
+        preprocessor=lambda x: x,  # Optional: transform 0-1 to 0-100
+    ),
+    PluginParameterMapping(
+        track_name="TRACK",
+        plugin_name="Guvnor",
+        parameter_name="TREBLE",
+        controller_name="POT4",
+        preprocessor=lambda x: x,  # Optional: transform 0-1 to 0-100
+    ),
+    PluginParameterMapping(
+        track_name="TRACK",
+        plugin_name="Guvnor",
+        parameter_name="LEVEL",
+        controller_name="POT5",
+        preprocessor=lambda x: x,  # Optional: transform 0-1 to 0-100
     ),
     Control(controller_name="SW1", cb=None),
     BypassMapping(plugin_name="passthrough", controller_name="SW2"),
