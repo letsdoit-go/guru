@@ -12,13 +12,7 @@ import time
 
 from .sensei_client import SenseiClient
 from .sushi_client import MappingError, SushiClient
-from .mappings import MAPPINGS, MappingManager
-
-
-# Configuration
-SENSEI_ADDRESS = "localhost:50051"
-SUSHI_ADDRESS = "localhost:51051"
-LOG_LEVEL = logging.DEBUG
+from .mappings import MappingManager
 
 
 # Global flag for graceful shutdown
@@ -38,9 +32,27 @@ def setup_logging(level: int = logging.INFO) -> None:
 
 class GlueApp:
 
-    def __init__(self):
-        """Main application entry point."""
-        setup_logging(LOG_LEVEL)
+    def __init__(
+        self,
+        mappings: list | None = None,
+        sensei_address: str = "localhost:50051",
+        sushi_address: str = "localhost:51051",
+        log_level: int = logging.INFO,
+    ):
+        """
+        Initialize the Pedal Glue App.
+
+        Args:
+            mappings: List of mapping objects (PluginParameterMapping, etc.)
+            sensei_address: Address of the Pin Proxy gRPC server
+            sushi_address: Address of the Sushi gRPC server
+            log_level: Logging level (e.g., logging.DEBUG, logging.INFO)
+        """
+        self.mappings = mappings or []
+        self.sensei_address = sensei_address
+        self.sushi_address = sushi_address
+
+        setup_logging(log_level)
         self.logger = logging.getLogger(__name__)
 
         # Register signal handler for graceful shutdown
@@ -51,16 +63,16 @@ class GlueApp:
         self.running = True
 
         # Check if mappings are defined
-        if MAPPINGS == []:
+        if not self.mappings:
             self.logger.warning(
-                "No mappings defined in mappings.py. "
+                "No mappings defined. "
                 "The app will run but won't control any parameters."
             )
 
         try:
             # Initialize Sensei client
             self.logger.info("Initializing Sensei client")
-            self.sensei_client = SenseiClient(SENSEI_ADDRESS)
+            self.sensei_client = SenseiClient(self.sensei_address)
             self.sensei_client.connect()
             self.sensei_client.start() # Starts the listening thread
 
@@ -82,19 +94,19 @@ class GlueApp:
 
             # Initialize Sushi client
             self.logger.info("Initializing Sushi client")
-            self.sushi_client = SushiClient(SUSHI_ADDRESS)
+            self.sushi_client = SushiClient(self.sushi_address)
             if not self.sushi_client.connect():
                 self.logger.error("Sushi does not seem to be running. Exiting now.")
                 sys.exit(1)
 
             # If the app needs to get notifications from Sushi, it should subscribe to those here.
             self.sushi_client.subscribe_to_parameter_updates()
-            
+
             # Initialize mappings with Sushi
-            if MAPPINGS:
+            if self.mappings:
                 self.logger.info("Initializing mappings")
-                self.mapping_manager.initialize_mappings(MAPPINGS)
-                self.mapping_manager.register_mappings(MAPPINGS)
+                self.mapping_manager.initialize_mappings(self.mappings)
+                self.mapping_manager.register_mappings(self.mappings)
             # while self.running:
             #     time.sleep(1)
         except MappingError:

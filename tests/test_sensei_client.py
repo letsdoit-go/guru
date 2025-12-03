@@ -14,22 +14,22 @@ import time
 @pytest.fixture
 def mock_observer():
     """Mock the observer module."""
-    with patch('sensei_client.observer') as mock:
+    with patch('glue_app.observer') as mock:
         yield mock
 
 
 @pytest.fixture
 def mock_grpc():
     """Mock the grpc module."""
-    with patch('sensei_client.grpc') as mock:
+    with patch('grpc.insecure_channel') as mock:
         yield mock
 
 
 @pytest.fixture
 def mock_protoc():
     """Mock protoc compilation."""
-    with patch('sensei_client.protoc') as mock:
-        mock.main.return_value = 0
+    with patch('grpc_tools.protoc.main') as mock:
+        mock.return_value = 0
         yield mock
 
 
@@ -39,7 +39,7 @@ def mock_proto_modules():
     mock_pb2 = MagicMock()
     mock_pb2_grpc = MagicMock()
 
-    with patch('sensei_client.importlib') as mock_importlib:
+    with patch('importlib.import_module') as mock_importlib:
         mock_importlib.import_module.side_effect = lambda name: (
             mock_pb2 if name == 'pin_events_pb2' else mock_pb2_grpc
         )
@@ -49,7 +49,7 @@ def mock_proto_modules():
 @pytest.fixture
 def client(mock_observer, mock_grpc, mock_protoc, mock_proto_modules):
     """Create a PinProxyClient with all dependencies mocked."""
-    from sensei_client import SenseiClient
+    from glue_app.sensei_client import SenseiClient
     return SenseiClient("localhost:50051")
 
 
