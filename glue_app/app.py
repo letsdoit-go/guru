@@ -10,9 +10,9 @@ import signal
 import sys
 import time
 
-from sensei_client import SenseiClient
-from sushi_client import MappingError, SushiClient
-from mappings import MAPPINGS, MappingManager
+from .sensei_client import SenseiClient
+from .sushi_client import MappingError, SushiClient
+from .mappings import MAPPINGS, MappingManager
 
 
 # Configuration
@@ -25,11 +25,6 @@ LOG_LEVEL = logging.DEBUG
 running = True
 
 
-def signal_handler(sig, frame):
-    """Handle SIGINT (Ctrl+C) for graceful shutdown."""
-    global running
-    logging.info("Shutdown signal received, stopping...")
-    running = False
 
 
 def setup_logging(level: int = logging.INFO) -> None:
@@ -49,7 +44,7 @@ class GlueApp:
         self.logger = logging.getLogger(__name__)
 
         # Register signal handler for graceful shutdown
-        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGINT, self._signal_handler)
 
         self.logger.info("Starting Pedal Glue App")
 
@@ -104,21 +99,24 @@ class GlueApp:
             #     time.sleep(1)
         except MappingError:
             self.logger.info("Exiting because of a fatal error.")
-            return 0
+            sys.exit(0)
         except Exception as e:
             self.logger.error(f"Fatal error: {e}", exc_info=True)
-            return 1
+            sys.exit(1)
 
-        finally:
-            # Cleanup
-            self.logger.info("Cleaning up connections")
-            if self.sensei_client:
-                self.sensei_client.disconnect()
-            if self.sushi_client:
-                self.sushi_client.disconnect()
-            self.logger.info("Shutdown complete")
+        # finally:
+        #     # Cleanup
+        #     self.logger.info("Cleaning up connections")
+        #     if self.sensei_client:
+        #         self.sensei_client.disconnect()
+        #     if self.sushi_client:
+        #         self.sushi_client.disconnect()
+        #     self.logger.info("Shutdown complete")
 
-        return 0
+    def _signal_handler(self, sig, frame):
+        """Handle SIGINT (Ctrl+C) for graceful shutdown."""
+        self.logging.info("Shutdown signal received, stopping...")
+        self.running = False
 
     def run(self) -> None:
         while self.running:

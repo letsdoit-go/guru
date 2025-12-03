@@ -3,7 +3,7 @@ Sushi client wrapper for controlling audio engine parameters via elkpy.
 """
 
 import logging
-import observer
+from . import observer
 from elkpy import sushicontroller as sc
 from elkpy import sushierrors
 

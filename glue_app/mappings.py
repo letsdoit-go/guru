@@ -9,7 +9,7 @@ returned by RefreshAllStates().
 from typing import Callable
 from elkpy.sushicontroller import SushiController
 import pin_events_pb2
-import observer
+from . import observer
 import logging
 
 logger = logging.getLogger(__name__)
@@ -399,3 +399,4 @@ MAPPINGS = [
     ),
     BypassMapping(plugin_name="Guvnor", controller_name="SW1"),
 ]
+

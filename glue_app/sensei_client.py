@@ -7,7 +7,7 @@ import logging
 import threading
 from typing import Iterator, Dict, Optional
 
-import observer
+from . import observer
 
 
 logger = logging.getLogger(__name__)
