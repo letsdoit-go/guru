@@ -127,7 +127,7 @@ class GlueApp:
 
     def _signal_handler(self, sig, frame):
         """Handle SIGINT (Ctrl+C) for graceful shutdown."""
-        self.logging.info("Shutdown signal received, stopping...")
+        self.logger.info("Shutdown signal received, stopping...")
         self.running = False
 
     def run(self) -> None:
