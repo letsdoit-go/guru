@@ -1,5 +1,5 @@
-from presets import Preset
-from mappings import PluginParameterMapping, SwitchMapping
+from glue_app.presets import Preset
+from glue_app.mappings import PluginParameterMapping, SwitchMapping
 
 
 preset_01 = Preset(

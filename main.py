@@ -1,17 +1,8 @@
-import sys
-from pathlib import Path
-
-# Add parent directory to path
-parent_dir = Path(__file__).parent.parent
-sys.path.insert(0, str(parent_dir))
-
 from glue_app.app import GlueApp
 from param_mappings import MAPPINGS
-from glue_app.presets import PresetManager
 
 
 app = GlueApp(mappings=MAPPINGS)
-pm = PresetManager()
 
 app.run()
 
