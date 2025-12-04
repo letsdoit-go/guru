@@ -9,11 +9,17 @@ preset_01 = Preset(
             "processor": "Reverb",
             "parameters": {
                 "dry": 1.0,
-                "wet": 0.3,
+                "wet": 0.1,
                 "width": 0.25,
                 "damp": 0.75
             },
         },
+        {
+            "processor": "Send_rev",
+            "parameters": {
+                "gain": 1.0
+            }
+        }
     ],
     mappings=[
         PluginParameterMapping(

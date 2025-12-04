@@ -6,6 +6,7 @@ import logging
 from . import observer
 from elkpy import sushicontroller as sc
 from elkpy import sushierrors
+from .presets import Preset
 
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,9 @@ class SushiClient:
         observer.subscribe("SushiTrackEvent", cb=self._handle_sushi_track_event)
         observer.subscribe("PluginBypassEvent", cb=self._handle_plugin_bypass_event)
         observer.subscribe("InitMapping", cb=self._initialize_mappings)
+        observer.subscribe("InitPreset", cb=self._initialize_preset)
+        observer.subscribe("SetInitialStateOnPlugin", cb=self._set_initial_state_on_plugin)
+        observer.subscribe("SetBypassStateOnPlugin", cb=self._set_bypass_state_on_plugin)
         self.sushi_address = sushi_address
         self.controller = None
 
@@ -96,6 +100,26 @@ class SushiClient:
         self.controller.audio_graph.set_processor_bypass_state(
             event["plugin_id"], not current_state
         )
+
+    def _set_initial_state_on_plugin(self, state: tuple) -> None:
+        if not self.controller:
+            raise RuntimeError("Not connected to Sushi. Call connect() first.")
+
+        self.controller.parameters.set_parameter_value(state[0], state[1], state[2])
+
+    def _set_bypass_state_on_plugin(self, state: tuple) -> None:
+        if not self.controller:
+            raise RuntimeError("Not connected to Sushi. Call connect() first.")
+
+        self.controller.audio_graph.set_processor_bypass_state(state[0], state[1])
+
+    def _initialize_preset(self, preset: Preset) -> None:
+        """For an initial state specified in a preset, this method gets all ids from Sushi"""
+        if not self.controller:
+            raise RuntimeError("Not connected to Sushi. Call connect() first.")
+
+        preset.init(self.controller)
+        logger.info(f"Initialized preset {preset}")
 
     def _initialize_mappings(self, mappings: list) -> None:
         """
