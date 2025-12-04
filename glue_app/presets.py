@@ -73,7 +73,6 @@ class PresetManager:
         observer.subscribe('LoadPreset', self._handle_load_preset)
 
     def _handle_load_preset(self, preset: int) -> None:
-        print(f"Loading preset {preset}")
         self.load_preset(preset)
 
     def add_preset(self, preset: Preset) -> None:

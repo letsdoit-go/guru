@@ -8,7 +8,6 @@ returned by RefreshAllStates().
 
 from typing import Callable
 from elkpy.sushicontroller import SushiController
-from functools import partial
 import pin_events_pb2
 from . import observer
 import logging
