@@ -278,31 +278,6 @@ class PresetManager:
             preset: Preset to update mappings for
         """
         observer.emit("NewMappings", preset.mappings)
-        # # Clear existing mappings
-        # self.current_mappings.clear()
-        #
-        # # Initialize new mappings
-        # for mapping in preset.mappings:
-        #     try:
-        #         # Initialize the mapping with Sushi controller
-        #         mapping.init(sc=self.sushi_controller)
-        #
-        #         # Store mapping by controller name for event handling
-        #         self.current_mappings[mapping.controller_name] = mapping
-        #
-        #         self._logger.debug(
-        #             f"Initialized mapping: {mapping.controller_name} -> "
-        #             f"{mapping.track_name}.{mapping.plugin_name}.{mapping.parameter_name}"
-        #         )
-        #
-        #     except Exception as e:
-        #         self._logger.error(
-        #             f"Failed to initialize mapping for {mapping.controller_name}: {e}"
-        #         )
-        #
-        # self._logger.info(
-        #     f"Updated parameter mappings: {len(self.current_mappings)} active"
-        # )
 
     def get_mapping_for_controller(
         self, controller_name: str
