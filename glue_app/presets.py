@@ -265,7 +265,6 @@ class PresetManager:
         Args:
             preset: Preset to apply bypass states for
         """
-        print(preset)
         for state in preset.bypass_states:
             observer.emit("SetBypassStateOnPlugin", state)
         for state in preset.parameter_states:
