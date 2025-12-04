@@ -43,6 +43,6 @@ MAPPINGS = [
     BypassMapping(plugin_name="Guvnor", controller_name="SW1"),
 
     # Adding a Control to load a preset
-    Control(controller_name="SW2", cb=partial(observer.emit, "LoadPreset", 0)),
+    Control(controller_name="SW2", cb=partial(observer.emit, "LoadNextPreset")),
 ]
 

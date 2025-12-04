@@ -16,8 +16,8 @@ app = GlueApp(mappings=MAPPINGS, log_level=logging.DEBUG)
 # Adding a PresetManager 
 # Thanks to the event-signal system, that's all we need to do!
 pm = PresetManager()
-from sushi_presets import preset_01
-pm.add_preset(preset_01)
+from sushi_presets import preset_01 
+pm.add_preset(preset_01) 
 pm.initialize_presets()
 
 
