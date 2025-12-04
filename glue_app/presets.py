@@ -71,6 +71,7 @@ class PresetManager:
         self.current_mappings: dict[str, TrackParameterMapping | PluginParameterMapping] = {}
         self._last_preset_loading = time.time()
         observer.subscribe('LoadPreset', self._handle_load_preset)
+        observer.subscribe('LoadNextPreset', self.load_next_preset)
 
     def _handle_load_preset(self, preset: int) -> None:
         self.load_preset(preset)
