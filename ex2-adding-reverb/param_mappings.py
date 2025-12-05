@@ -1,10 +1,7 @@
-from functools import partial
-from glue_app.mappings import Control, PluginParameterMapping, BypassMapping
-from glue_app import observer
+from glue_app.mappings import PluginParameterMapping, BypassMapping
 
 
 MAPPINGS = [
-    # Example: Map a pot to a plugin parameter
     PluginParameterMapping(
         track_name="TRACK",
         plugin_name="Guvnor",
@@ -40,6 +37,19 @@ MAPPINGS = [
         controller_name="POT5",
         preprocessor=lambda x: x,  # Optional: transform 0-1 to 0-100
     ),
-    BypassMapping(plugin_name="Guvnor", controller_name="SW1")
+    BypassMapping(plugin_name="Guvnor", controller_name="SW1"),
+    PluginParameterMapping(
+        track_name="TRACK",
+        plugin_name="Reverb_send",
+        parameter_name="gain",
+        controller_name="POT6",
+        preprocessor=lambda x: x,  # Optional: transform 0-1 to 0-100
+    ),
+    PluginParameterMapping(
+        track_name="TRACK",
+        plugin_name="Reverb",
+        parameter_name="size",
+        controller_name="POT7",
+        preprocessor=lambda x: x,  # Optional: transform 0-1 to 0-100
+    ),
 ]
-
