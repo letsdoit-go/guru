@@ -5,7 +5,10 @@ gRPC client for connecting to PinProxyService and subscribing to hardware events
 import grpc
 import logging
 import threading
-from typing import Iterator, Dict, Optional
+from typing import Iterator, Optional
+
+import pin_events_pb2
+import pin_events_pb2_grpc
 
 from . import observer
 
@@ -26,51 +29,16 @@ class SenseiClient:
         self.server_address = server_address
         self.channel = None
         self.stub = None
-        self.pin_events_pb2 = None
-        self.pin_events_pb2_grpc = None
 
         # Threading attributes
         self._event_thread: Optional[threading.Thread] = None
         self._running: bool = False
 
-        # Compile and load protobuf modules
-        self._compile_protofile()
-
-    def _compile_protofile(self) -> None:
-        """Compile pin_events.proto and dynamically import the generated modules."""
-        import os
-        import importlib
-        from grpc_tools import protoc
-
-        # Get the directory where the proto file is located
-        proto_dir = os.path.dirname(os.path.abspath(__file__))
-        proto_file = "pin_events.proto"
-        proto_path = os.path.join(proto_dir, proto_file)
-
-        # Compile the proto file
-        result = protoc.main([
-            'grpc_tools.protoc',
-            f'--proto_path={proto_dir}',
-            f'--python_out={proto_dir}',
-            f'--grpc_python_out={proto_dir}',
-            proto_path
-        ])
-
-        if result != 0:
-            raise RuntimeError(f"Failed to compile proto file: {proto_file}")
-
-        # Dynamically import the generated modules
-        self.pin_events_pb2 = importlib.import_module('pin_events_pb2')
-        self.pin_events_pb2_grpc = importlib.import_module('pin_events_pb2_grpc')
-
-        logger.info(f"Compiled and loaded proto file: {proto_file}")
-
     def connect(self) -> None:
         """Establish connection to the gRPC server."""
         logger.info(f"Connecting to Pin Proxy at {self.server_address}")
         self.channel = grpc.insecure_channel(self.server_address)
-        assert self.pin_events_pb2_grpc is not None
-        self.stub = self.pin_events_pb2_grpc.PinProxyServiceStub(self.channel)
+        self.stub = pin_events_pb2_grpc.PinProxyServiceStub(self.channel)
         logger.info("Connected to Pin Proxy")
 
     def disconnect(self) -> None:
@@ -143,8 +111,7 @@ class SenseiClient:
             raise RuntimeError("Not connected to server. Call connect() first.")
 
         logger.info("Requesting controller states via RefreshAllStates()")
-        assert self.pin_events_pb2 is not None
-        request = self.pin_events_pb2.RefreshAllStatesRequest()
+        request = pin_events_pb2.RefreshAllStatesRequest()
         response = self.stub.RefreshAllStates(request)
 
         controller_map = {}
@@ -178,8 +145,7 @@ class SenseiClient:
         if not self.stub:
             raise RuntimeError("Not connected to server. Call connect() first.")
 
-        assert self.pin_events_pb2 is not None
-        request = self.pin_events_pb2.SubscribeRequest()
+        request = pin_events_pb2.SubscribeRequest()
         if controller_ids:
             request.controller_ids.extend(controller_ids)
             logger.info(f"Subscribing to events for controllers: {controller_ids}")
@@ -204,8 +170,7 @@ class SenseiClient:
         if not self.stub:
             raise RuntimeError("Not connected to server. Call connect() first.")
 
-        assert self.pin_events_pb2 is not None
-        request = self.pin_events_pb2.UpdateLedRequest(led_id=led_id, active=active)
+        request = pin_events_pb2.UpdateLedRequest(led_id=led_id, active=active)
         self.stub.UpdateLed(request)
         logger.debug(f"Updated LED {led_id} to {'active' if active else 'inactive'}")
 

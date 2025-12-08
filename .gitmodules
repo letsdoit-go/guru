@@ -1,0 +1,3 @@
+[submodule "glue_app/sensei-grpc-api"]
+	path = glue_app/sensei-grpc-api
+	url = git@bitbucket.org:mindswteam/sensei-grpc-api.git
