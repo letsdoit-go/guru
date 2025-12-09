@@ -34,6 +34,8 @@ class SenseiClient:
         self._event_thread: Optional[threading.Thread] = None
         self._running: bool = False
 
+        observer.subscribe("ToggleLedRequest", self._update_led)
+
     def connect(self) -> None:
         """Establish connection to the gRPC server."""
         logger.info(f"Connecting to Pin Proxy at {self.server_address}")
@@ -159,7 +161,7 @@ class SenseiClient:
             logger.error(f"gRPC error during event subscription: {e}")
             raise
 
-    def update_led(self, led_id: int, active: bool) -> None:
+    def _update_led(self, led_id: int, active: bool) -> None:
         """
         Update the state of an LED.
 

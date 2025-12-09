@@ -382,7 +382,7 @@ class MappingManager:
 
     def _handle_control_event(self, mapping, event) -> None:
         logger.debug(f"Received control event: {event} -> cb: {mapping.callback}")
-        mapping.callback()
+        mapping.callback(event.value)
 
     def _handle_bypass_event(self, mapping, event) -> None:
         logger.debug(f"Toggling bypass state for plugin {mapping.controller_name}")
