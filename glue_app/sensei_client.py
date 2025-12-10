@@ -35,6 +35,7 @@ class SenseiClient:
         self._running: bool = False
 
         observer.subscribe("ToggleLedRequest", self._update_led)
+        observer.subscribe("PrintToDisplay", self._print_to_display)
 
     def connect(self) -> None:
         """Establish connection to the gRPC server."""
@@ -175,4 +176,12 @@ class SenseiClient:
         request = pin_events_pb2.UpdateLedRequest(led_id=led_id, active=active)
         self.stub.UpdateLed(request)
         logger.debug(f"Updated LED {led_id} to {'active' if active else 'inactive'}")
+
+    def _print_to_display(self, message: str) -> None:
+        if not self.stub:
+            raise RuntimeError("Not connected to server. Call connect() first.")
+
+        request = pin_events_pb2.WriteToDisplayRequest(data=message)
+        self.stub.WriteToDisplay(request)
+        logger.debug(f"Printed {message} to display")
 
