@@ -26,6 +26,8 @@ Connects to the Sensei gRPC server and streams hardware controller events.
 - Runs event subscription in a background thread
 - Discovers available hardware controllers via `RefreshAllStates()`
 - Translates hardware events to internal events
+- Controls LEDs on the board 
+- Prints to the mock display (soon to be deprecated)
 
 **Events Emitted:**
 - `UiEvent` - Hardware controller events (analog, toggle, relative, range)
@@ -35,7 +37,9 @@ Connects to the Sensei gRPC server and streams hardware controller events.
   - Emitted once after `refresh_all_states()` completes
   - Payload: `dict[str, int]` mapping controller names to IDs
 
-**Events Subscribed:** None
+**Events Subscribed:**
+- `PrintToDisplay` - 
+- `ToggleLedRequest`
 
 #### 2. MappingManager (mappings.py)
 **Event Routing Manager**
