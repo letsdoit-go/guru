@@ -137,6 +137,7 @@ class SushiClient:
 
         logger.info(f"Initializing {len(mappings)} mappings")
         for i, mapping in enumerate(mappings):
+            print(mapping)
             try:
                 mapping.init(self.controller)
                 logger.info(

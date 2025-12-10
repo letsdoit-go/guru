@@ -104,6 +104,8 @@ class BypassMapping(PluginParameterMapping):
     def init(self, sc: SushiController) -> None:
         self.plugin_id = sc.audio_graph.get_processor_id(self.plugin_name)
 
+    def __repr__(self) -> str:
+        return f"BypassMapping: plugin={self.plugin_name},{f', controller={self.controller_name}' if self.controller_name else ''}"
 
 class ComboMapping:
     """This holds a list of Mappings"""

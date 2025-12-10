@@ -37,18 +37,18 @@ MAPPINGS = [
         controller_name="POT5",
         preprocessor=lambda x: x,  # Optional: transform 0-1 to 0-100
     ),
-    BypassMapping(plugin_name="Guvnor", controller_name="SW1"),
+    BypassMapping(plugin_name="Guvnor", controller_name="SW2"),
     PluginParameterMapping(
         track_name="TRACK",
-        plugin_name="Reverb_send",
+        plugin_name="Send_rev",
         parameter_name="gain",
         controller_name="POT6",
         preprocessor=lambda x: x,  # Optional: transform 0-1 to 0-100
     ),
     PluginParameterMapping(
-        track_name="TRACK",
+        track_name="AUX",
         plugin_name="Reverb",
-        parameter_name="size",
+        parameter_name="room_size",
         controller_name="POT7",
         preprocessor=lambda x: x,  # Optional: transform 0-1 to 0-100
     ),
