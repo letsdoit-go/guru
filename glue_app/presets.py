@@ -156,7 +156,7 @@ class PresetManager:
             self._logger.error(f"Failed to load preset '{preset.name}': {e}")
             return False
 
-    def load_next_preset(self) -> bool:
+    def load_next_preset(self, value = None) -> bool:
         """
         Load the next preset in the list (cycles back to first).
 
