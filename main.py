@@ -1,7 +1,7 @@
 import logging
 
 from glue_app.app import GlueApp
-from param_mappings import MAPPINGS
+from old_param_mappings import MAPPINGS
 from glue_app import observer
 
 
