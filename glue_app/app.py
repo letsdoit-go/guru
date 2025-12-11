@@ -83,7 +83,7 @@ class GlueApp:
             self.logger.info("Fetching controller states")
             while True:
                 try:
-                    self.sensei_client.refresh_all_states()
+                    self.sensei_client.get_controller_map()
                     break
                 except Exception:
                     if not self.running:

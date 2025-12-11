@@ -114,10 +114,13 @@ class SenseiClient:
             raise RuntimeError("Not connected to server. Call connect() first.")
 
         logger.info("Requesting controller states via RefreshAllStates()")
-        request = sensei_rpc_pb2.RefreshAllStatesRequest()
-        response = self.stub.RefreshAllStates(request)
+        response = self.stub.RefreshAllStates(sensei_rpc_pb2.GenericVoidValue())
 
+    def get_controller_map(self) -> None:
+        if not self.stub:
+            raise RuntimeError("Not connected to server. Call connect() first.")
         controller_map = {}
+        response = self.stub.GetControllerMap(sensei_rpc_pb2.GenericVoidValue())
 
         # Map pot names to IDs
         for pot in response.pots:
