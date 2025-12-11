@@ -31,8 +31,8 @@ def mock_proto_modules():
     mock_pb2 = MagicMock()
     mock_pb2_grpc = MagicMock()
 
-    with patch('glue_app.sensei_client.pin_events_pb2', mock_pb2), \
-         patch('glue_app.sensei_client.pin_events_pb2_grpc', mock_pb2_grpc):
+    with patch('glue_app.sensei_client.sensei_rpc_pb2', mock_pb2), \
+         patch('glue_app.sensei_client.sensei_rpc_pb2_grpc', mock_pb2_grpc):
         yield mock_pb2, mock_pb2_grpc
 
 

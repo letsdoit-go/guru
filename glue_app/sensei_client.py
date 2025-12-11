@@ -7,8 +7,8 @@ import logging
 import threading
 from typing import Iterator, Optional
 
-import pin_events_pb2
-import pin_events_pb2_grpc
+import sensei_rpc_pb2
+import sensei_rpc_pb2_grpc
 
 from . import observer
 
@@ -41,7 +41,7 @@ class SenseiClient:
         """Establish connection to the gRPC server."""
         logger.info(f"Connecting to Pin Proxy at {self.server_address}")
         self.channel = grpc.insecure_channel(self.server_address)
-        self.stub = pin_events_pb2_grpc.PinProxyServiceStub(self.channel)
+        self.stub = sensei_rpc_pb2_grpc.PinProxyServiceStub(self.channel)
         logger.info("Connected to Pin Proxy")
 
     def disconnect(self) -> None:
@@ -114,7 +114,7 @@ class SenseiClient:
             raise RuntimeError("Not connected to server. Call connect() first.")
 
         logger.info("Requesting controller states via RefreshAllStates()")
-        request = pin_events_pb2.RefreshAllStatesRequest()
+        request = sensei_rpc_pb2.RefreshAllStatesRequest()
         response = self.stub.RefreshAllStates(request)
 
         controller_map = {}
@@ -148,7 +148,7 @@ class SenseiClient:
         if not self.stub:
             raise RuntimeError("Not connected to server. Call connect() first.")
 
-        request = pin_events_pb2.SubscribeRequest()
+        request = sensei_rpc_pb2.SubscribeRequest()
         if controller_ids:
             request.controller_ids.extend(controller_ids)
             logger.info(f"Subscribing to events for controllers: {controller_ids}")
@@ -173,7 +173,7 @@ class SenseiClient:
         if not self.stub:
             raise RuntimeError("Not connected to server. Call connect() first.")
 
-        request = pin_events_pb2.UpdateLedRequest(led_id=led_id, active=active)
+        request = sensei_rpc_pb2.UpdateLedRequest(led_id=led_id, active=active)
         self.stub.UpdateLed(request)
         logger.debug(f"Updated LED {led_id} to {'active' if active else 'inactive'}")
 
@@ -181,7 +181,7 @@ class SenseiClient:
         if not self.stub:
             raise RuntimeError("Not connected to server. Call connect() first.")
 
-        request = pin_events_pb2.WriteToDisplayRequest(data=message)
+        request = sensei_rpc_pb2.WriteToDisplayRequest(data=message)
         self.stub.WriteToDisplay(request)
         logger.debug(f"Printed {message} to display")
 
