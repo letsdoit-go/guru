@@ -32,7 +32,7 @@ Connects to the Sensei gRPC server and streams hardware controller events.
 **Events Emitted:**
 - `UiEvent` - Hardware controller events (analog, toggle, relative, range)
   - Emitted continuously from background thread as hardware events occur
-  - Payload: `pin_events_pb2.Event` (contains controller_id, timestamp, value)
+  - Payload: `sensei_rpc_pb2.Event` (contains controller_id, timestamp, value)
 - `NewControllerMap` - Controller discovery results
   - Emitted once after `refresh_all_states()` completes
   - Payload: `dict[str, int]` mapping controller names to IDs
@@ -129,7 +129,7 @@ Wraps elkpy's SushiController and manages communication with the Sushi audio eng
 
 | Event Name | Emitter | Subscribers | Payload | Purpose |
 |------------|---------|-------------|---------|---------|
-| `UiEvent` | SenseiClient | MappingManager | `pin_events_pb2.Event` | Hardware controller event stream |
+| `UiEvent` | SenseiClient | MappingManager | `sensei_rpc_pb2.Event` | Hardware controller event stream |
 | `NewControllerMap` | SenseiClient | MappingManager | `dict[str, int]` | Controller name→ID mapping |
 | `InitMapping` | MappingManager | SushiClient | `list[PluginParameterMapping]` | Request mapping initialization |
 | `MappingsInitialized` | SushiClient | MappingManager | None | Confirm initialization complete |
@@ -148,7 +148,7 @@ uv sync
 uv sync --extra dev
 ```
 
-The gRPC code is automatically compiled from `pin_events.proto` at runtime by `SenseiClient`.
+The gRPC code is automatically compiled from `sensei_rpc.proto` at runtime by `SenseiClient`.
 
 ## Configuration
 
@@ -256,10 +256,10 @@ uv run pytest test_sensei_client.py
 
 ### Regenerating gRPC Code
 
-After modifying `pin_events.proto`:
+After modifying `sensei_rpc.proto`:
 
 ```bash
-uv run python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. --pyi_out=. pin_events.proto
+uv run python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. --pyi_out=. sensei_rpc.proto
 ```
 
 ### Logging
@@ -329,8 +329,8 @@ pedal-glue-app/
 ├── mappings.py              # MappingManager + user configuration
 ├── presets.py               # Mapping class definitions
 ├── dispatcher.py            # (Legacy) Original non-event-based dispatcher
-├── pin_events.proto         # gRPC service definition
-├── pin_events_pb2*.py       # Generated protobuf code (auto-generated)
+├── sensei_rpc.proto         # gRPC service definition
+├── sensei_rpc_pb2*.py       # Generated protobuf code (auto-generated)
 ├── test_*.py                # Unit tests with observer mocking
 └── pyproject.toml           # Project dependencies
 ```

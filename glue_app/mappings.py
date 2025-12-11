@@ -8,7 +8,7 @@ returned by RefreshAllStates().
 
 from typing import Callable
 from elkpy.sushicontroller import SushiController
-import pin_events_pb2
+import sensei_rpc_pb2
 from . import observer
 import logging
 
@@ -221,7 +221,7 @@ class MappingManager:
                     f"{getattr(mapping, 'track_name', '')}/{getattr(mapping, 'plugin_name', '-')}/{getattr(mapping, 'parameter_name', 'BYPASS')}"
                 )
 
-    def _dispatch_ui_event(self, event: pin_events_pb2.Event) -> None:
+    def _dispatch_ui_event(self, event: sensei_rpc_pb2.Event) -> None:
         """
         process an incoming event and route it to the appropriate sushi parameter.
 
@@ -241,7 +241,7 @@ class MappingManager:
         else:
             logger.warning(f"unknown event type: {event_type}")
 
-    def _handle_analog_event(self, event: pin_events_pb2.AnalogEvent) -> None:
+    def _handle_analog_event(self, event: sensei_rpc_pb2.AnalogEvent) -> None:
         """handle analog controller events (pots, faders)."""
         mapping = self.mappings_by_controller_id.get(event.controller_id)
         if not mapping:
@@ -282,7 +282,7 @@ class MappingManager:
                 value=value,
             )
 
-    def _handle_toggle_event(self, event: pin_events_pb2.ToggleEvent) -> None:
+    def _handle_toggle_event(self, event: sensei_rpc_pb2.ToggleEvent) -> None:
         """handle toggle/switch events."""
         mapping = self.mappings_by_controller_id.get(event.controller_id)
         if not mapping:
@@ -317,7 +317,7 @@ class MappingManager:
             f"pressed={event.value} -> {value}"
         )
 
-    def _handle_relative_event(self, event: pin_events_pb2.RelativeEvent) -> None:
+    def _handle_relative_event(self, event: sensei_rpc_pb2.RelativeEvent) -> None:
         """
         handle relative events (encoders).
 
@@ -349,7 +349,7 @@ class MappingManager:
         # new_value = clamp(new_value, param_min, param_max)
         # self.sushi_client.set_parameter_value(...)
 
-    def _handle_range_event(self, event: pin_events_pb2.RangeEvent) -> None:
+    def _handle_range_event(self, event: sensei_rpc_pb2.RangeEvent) -> None:
         """
         handle range events (discrete position controllers).
 

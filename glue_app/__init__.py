@@ -1,11 +1,10 @@
 """
 glue_app package initialization.
 
-Compiles pin_events.proto from sensei-grpc-api submodule and generates
+Compiles sensei_rpc.proto from sensei-grpc-api submodule and generates
 Python modules in the project root directory for use across the application.
 """
 
-import os
 import sys
 import logging
 from pathlib import Path
@@ -16,17 +15,17 @@ logger = logging.getLogger(__name__)
 
 def _compile_proto():
     """
-    Compile pin_events.proto and place generated files in project root.
+    Compile sensei_rpc.proto and place generated files in project root.
 
     This runs automatically when glue_app is imported. Generated files:
-    - pin_events_pb2.py
-    - pin_events_pb2_grpc.py
-    - pin_events_pb2.pyi
+    - sensei_rpc_pb2.py
+    - sensei_rpc_pb2_grpc.py
+    - sensei_rpc_pb2.pyi
     """
     # Get paths
     glue_app_dir = Path(__file__).parent
     proto_dir = glue_app_dir / "sensei-grpc-api"
-    proto_file = "pin_events.proto"
+    proto_file = "sensei_rpc.proto"
     proto_path = proto_dir / proto_file
 
     # Output to project root (parent of glue_app)
