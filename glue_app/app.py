@@ -116,15 +116,6 @@ class GlueApp:
             self.logger.error(f"Fatal error: {e}", exc_info=True)
             sys.exit(1)
 
-        # finally:
-        #     # Cleanup
-        #     self.logger.info("Cleaning up connections")
-        #     if self.sensei_client:
-        #         self.sensei_client.disconnect()
-        #     if self.sushi_client:
-        #         self.sushi_client.disconnect()
-        #     self.logger.info("Shutdown complete")
-
     def _signal_handler(self, sig, frame):
         """Handle SIGINT (Ctrl+C) for graceful shutdown."""
         self.logger.info("Shutdown signal received, stopping...")
