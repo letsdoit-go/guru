@@ -107,6 +107,7 @@ class BypassMapping(PluginParameterMapping):
     def __repr__(self) -> str:
         return f"BypassMapping: plugin={self.plugin_name},{f', controller={self.controller_name}' if self.controller_name else ''}"
 
+
 class ComboMapping:
     """This holds a list of Mappings"""
 
@@ -243,6 +244,7 @@ class MappingManager:
 
     def _handle_analog_event(self, event: sensei_rpc_pb2.AnalogEvent) -> None:
         """handle analog controller events (pots, faders)."""
+        print(event)
         mapping = self.mappings_by_controller_id.get(event.controller_id)
         if not mapping:
             logger.debug(f"no mapping for controller id {event.controller_id}")

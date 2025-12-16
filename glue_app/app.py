@@ -19,8 +19,6 @@ from .mappings import MappingManager
 running = True
 
 
-
-
 def setup_logging(level: int = logging.INFO) -> None:
     """Configure logging for the application."""
     logging.basicConfig(
@@ -31,7 +29,6 @@ def setup_logging(level: int = logging.INFO) -> None:
 
 
 class GlueApp:
-
     def __init__(
         self,
         mappings: list | None = None,
@@ -74,7 +71,7 @@ class GlueApp:
             self.logger.info("Initializing Sensei client")
             self.sensei_client = SenseiClient(self.sensei_address)
             self.sensei_client.connect()
-            self.sensei_client.start() # Starts the listening thread
+            self.sensei_client.start()  # Starts the listening thread
 
             # MappingManager must exist before SenseiClient.refresh_all_states
             self.mapping_manager = MappingManager()
@@ -85,12 +82,11 @@ class GlueApp:
                 try:
                     self.sensei_client.get_controller_map()
                     break
-                except Exception:
+                except Exception as e:
                     if not self.running:
                         return 1
                     self.logger.info("Pin proxy unavailable. Retrying in 5s...")
                     time.sleep(5)
-
 
             # Initialize Sushi client
             self.logger.info("Initializing Sushi client")
@@ -134,7 +130,6 @@ class GlueApp:
         if self.sushi_client:
             self.sushi_client.disconnect()
         self.logger.info("Shutdown complete")
-
 
 
 if __name__ == "__main__":
