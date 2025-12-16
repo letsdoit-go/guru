@@ -9,9 +9,8 @@ preset_01 = Preset(
     initial_state=[
         {
             "processor": "Reverb",
-            "parameters": {"dry": 0.0, "wet": 0.2, "width": 0.25, "damp": 0.75},
+            "parameters": {"dry": 0.0, "wet": 0.2, "room_size": 0.1, "width": 0.25, "damp": 0.9},
         },
-        {"processor": "Send_rev", "parameters": {"gain": 1.0}},
     ],
     mappings=[
         PluginParameterMapping(
@@ -34,7 +33,7 @@ preset_02 = Preset(
                 "wet": 0.5,
                 "room_size": 0.5,
                 "width": 0.6,
-                "damp": 0.88,
+                "damp": 0.5,
             },
         }
     ],
@@ -68,13 +67,12 @@ preset_03 = Preset(
     initial_state=[
         {
             "processor": "Reverb",
-            "bypassed": True,
             "parameters": {
                 "dry": 0.0,
                 "wet": 1.0,
-                "room_size": 1.0,
+                "room_size": 0.89,
                 "width": 1.0,
-                "damp": 0.1,
+                "damp": 0.3,
             },
         },
     ],

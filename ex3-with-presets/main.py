@@ -22,6 +22,6 @@ pm.add_preset(preset_01)
 pm.add_preset(preset_02)
 pm.add_preset(preset_03)
 pm.initialize_presets()
-
+pm.load_preset(0)
 
 app.run()
