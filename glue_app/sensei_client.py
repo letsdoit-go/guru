@@ -41,7 +41,7 @@ class SenseiClient:
         """Establish connection to the gRPC server."""
         logger.info(f"Connecting to Pin Proxy at {self.server_address}")
         self.channel = grpc.insecure_channel(self.server_address)
-        self.stub = sensei_rpc_pb2_grpc.PinProxyServiceStub(self.channel)
+        self.stub = sensei_rpc_pb2_grpc.SenseiControllerStub(self.channel)
         logger.info("Connected to Pin Proxy")
 
     def disconnect(self) -> None:
@@ -125,19 +125,17 @@ class SenseiClient:
         # Map pot names to IDs
         for pot in response.pots:
             controller_map[pot.name] = pot.id
-            logger.debug(f"Pot: {pot.name} -> ID {pot.id} (value: {pot.normalized_value})")
+            logger.debug(f"Pot: {pot.name} -> ID {pot.id}")
 
         # Map switch names to IDs
         for switch in response.switches:
             controller_map[switch.name] = switch.id
-            logger.debug(f"Switch: {switch.name} -> ID {switch.id} (active: {switch.active})")
+            logger.debug(f"Switch: {switch.name} -> ID {switch.id}")
 
         logger.info(f"Discovered {len(controller_map)} controllers")
         observer.emit("NewControllerMap", controller_map)
 
-    def subscribe_to_events(
-        self, controller_ids: list[int] | None = None
-    ) -> Iterator:
+    def subscribe_to_events(self, controller_ids: list[int] | None = None) -> Iterator:
         """
         Subscribe to hardware events stream.
 
@@ -176,7 +174,7 @@ class SenseiClient:
         if not self.stub:
             raise RuntimeError("Not connected to server. Call connect() first.")
 
-        request = sensei_rpc_pb2.UpdateLedRequest(led_id=led_id, active=active)
+        request = sensei_rpc_pb2.UpdateLedRequest(led_id=led_id)
         self.stub.UpdateLed(request)
         logger.debug(f"Updated LED {led_id} to {'active' if active else 'inactive'}")
 
@@ -187,4 +185,3 @@ class SenseiClient:
         request = sensei_rpc_pb2.WriteToDisplayRequest(data=message)
         self.stub.WriteToDisplay(request)
         logger.debug(f"Printed {message} to display")
-
