@@ -30,8 +30,9 @@ class Preset:
         self.parameter_states: list = []
         self.bypass_states: list = []
 
-
-    def add_mapping(self, mapping: TrackParameterMapping | PluginParameterMapping) -> None:
+    def add_mapping(
+        self, mapping: TrackParameterMapping | PluginParameterMapping
+    ) -> None:
         self.mappings.append(mapping)
 
     def init(self, sc: SushiController) -> None:
@@ -44,8 +45,7 @@ class Preset:
                 self.bypass_states.append((proc_id, state["bypassed"]))
 
     def __repr__(self) -> str:
-        return f"{self.name}: {self.initial_state} => {'Initialized' if self.parameter_states else 'Not Initialized'}" 
-
+        return f"{self.name}: {self.initial_state} => {'Initialized' if self.parameter_states else 'Not Initialized'}"
 
 
 class PresetManager:
@@ -68,10 +68,12 @@ class PresetManager:
 
         self.preset_list: list[Preset] = []
         self.current_preset_index: int = 0
-        self.current_mappings: dict[str, TrackParameterMapping | PluginParameterMapping] = {}
+        self.current_mappings: dict[
+            str, TrackParameterMapping | PluginParameterMapping
+        ] = {}
         self._last_preset_loading = time.time()
-        observer.subscribe('LoadPreset', self._handle_load_preset)
-        observer.subscribe('LoadNextPreset', self.load_next_preset)
+        observer.subscribe("LoadPreset", self._handle_load_preset)
+        observer.subscribe("LoadNextPreset", self.load_next_preset)
 
     def _handle_load_preset(self, preset: int) -> None:
         self.load_preset(preset)
@@ -150,13 +152,14 @@ class PresetManager:
                 f"Successfully loaded preset '{preset.name}' "
                 f"(switched from '{old_preset_name}' at index {old_index})"
             )
+            observer.emit("PrintToDisplay", f"Preset {preset.name} loaded successfully")
             return True
 
         except Exception as e:
             self._logger.error(f"Failed to load preset '{preset.name}': {e}")
             return False
 
-    def load_next_preset(self, value = None) -> bool:
+    def load_next_preset(self, value=None) -> bool:
         """
         Load the next preset in the list (cycles back to first).
 
@@ -269,7 +272,7 @@ class PresetManager:
             observer.emit("SetBypassStateOnPlugin", state)
         for state in preset.parameter_states:
             observer.emit("SetInitialStateOnPlugin", state)
-            
+
     def _update_parameter_mappings(self, preset: Preset) -> None:
         """
         Update parameter mappings for the given preset.
@@ -279,9 +282,7 @@ class PresetManager:
         """
         observer.emit("NewMappings", preset.mappings)
 
-    def get_mapping_for_controller(
-        self, controller_name: str
-    ) -> None:
+    def get_mapping_for_controller(self, controller_name: str) -> None:
         """
         Get the parameter mapping for a specific controller.
 
