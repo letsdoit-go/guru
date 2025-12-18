@@ -96,7 +96,7 @@ class GlueApp:
                 sys.exit(1)
 
             # If the app needs to get notifications from Sushi, it should subscribe to those here.
-            self.sushi_client.subscribe_to_parameter_updates()
+            # self.sushi_client.subscribe_to_parameter_updates()
 
             # Initialize mappings with Sushi
             if self.mappings:
