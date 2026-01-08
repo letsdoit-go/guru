@@ -19,7 +19,7 @@ class MappingError(Exception):
 class SushiClient:
     """Wrapper for elkpy SushiController with mapping management."""
 
-    def __init__(self, sushi_address: str = "localhost:51051"):
+    def __init__(self, sushi_address: str):
         """
         Initialize the Sushi client.
 

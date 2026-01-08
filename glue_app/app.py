@@ -18,6 +18,10 @@ from .mappings import MappingManager
 # Global flag for graceful shutdown
 running = True
 
+DEFAULT_SUSHI_ADDRESS = 'localhost:51051'
+if sys.platform == 'win32':
+    DEFAULT_SUSHI_ADDRESS = 'localhost:510'
+
 
 def setup_logging(level: int = logging.INFO) -> None:
     """Configure logging for the application."""
@@ -33,7 +37,7 @@ class GlueApp:
         self,
         mappings: list | None = None,
         sensei_address: str = "localhost:50051",
-        sushi_address: str = "localhost:51051",
+        sushi_address: str = DEFAULT_SUSHI_ADDRESS,
         log_level: int = logging.INFO,
     ):
         """
