@@ -73,7 +73,6 @@ if LUMA_AVAILABLE:
         ) -> None:
             with canvas(self.device) as draw:
                 draw.text(position, text, fill)
-            self.gpio.cleanup()
 
         def _handle_sushi_plugin_event(self, event) -> None:
             name = self._get_param_name_by_event(event["plugin_id"], event["param_id"])
