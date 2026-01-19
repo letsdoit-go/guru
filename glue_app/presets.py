@@ -152,7 +152,7 @@ class PresetManager:
                 f"Successfully loaded preset '{preset.name}' "
                 f"(switched from '{old_preset_name}' at index {old_index})"
             )
-            observer.emit("PrintToDisplay", f"Preset {preset.name} loaded successfully")
+            observer.emit("DrawText", f"Preset {preset.name} loaded successfully")
             return True
 
         except Exception as e:
