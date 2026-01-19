@@ -8,6 +8,7 @@ try:
 except ImportError:
     LUMA_AVAILABLE = False
 
+from functools import cache
 from . import observer
 
 if LUMA_AVAILABLE:
@@ -56,10 +57,15 @@ if LUMA_AVAILABLE:
         Its draw() method is a callback for the DrawText event.
         """
 
-        def __init__(self, chip_name: str = "/dev/gpiochip0"):
+        def __init__(self, app=None, chip_name: str = "/dev/gpiochip0"):
             self.gpio = GpiodAdapter(chip_name=chip_name)  # Adjust chip name if needed
             self.serial = spi(port=1, device=0, gpio_DC=14, gpio_RST=12, gpio=self.gpio)
             self.device = sh1106(self.serial)
+            if app:
+                self._sm = app.sushi_client.controller
+                observer.subscribe(
+                    "SushiPluginEvent", cb=self._handle_sushi_plugin_event
+                )
             observer.subscribe(event="DrawText", cb=self.draw)
 
         def draw(
@@ -69,15 +75,44 @@ if LUMA_AVAILABLE:
                 draw.text(position, text, fill)
             self.gpio.cleanup()
 
+        def _handle_sushi_plugin_event(self, event) -> None:
+            name = self._get_param_name_by_event(event["plugin_id"], event["param_id"])
+            self.draw(f"{name}: {event['value']:.2f}")
+
+        @cache
+        def _get_param_name_by_event(self, proc_id: int, param_id: int) -> str:
+            info = self._sm.parameters.get_parameter_info(
+                processor_identifier=proc_id,
+                parameter_identifier=param_id,
+            )
+            return info.name
+
 else:
 
     class DisplayManager:
         """Writes to the mocked display in board-ui when LUMA is not available on the current machine"""
 
-        def __init__(self) -> None:
+        def __init__(self, app=None, chip_name: str = "/dev/gpiochip0"):
             observer.subscribe(event="DrawText", cb=self.draw)
+            if app:
+                observer.subscribe(
+                    "SushiPluginEvent", cb=self._handle_sushi_plugin_event
+                )
+                self._sm = app.sushi_client.controller
 
         def draw(
             self, text: str, position: tuple[int, int] = (0, 0), fill: str = "white"
         ) -> None:
             observer.emit("PrintToMockDisplay", text)
+
+        def _handle_sushi_plugin_event(self, event) -> None:
+            name = self._get_param_name_by_event(event["plugin_id"], event["param_id"])
+            self.draw(f"{name}: {event['value']:.2f}")
+
+        @cache
+        def _get_param_name_by_event(self, proc_id: int, param_id: int) -> str:
+            info = self._sm.parameters.get_parameter_info(
+                processor_identifier=proc_id,
+                parameter_identifier=param_id,
+            )
+            return info.name
