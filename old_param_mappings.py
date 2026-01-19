@@ -12,6 +12,6 @@ MAPPINGS = [
         controller_name="POT1",
         preprocessor=lambda x: x,  # Optional: transform 0-1 to 0-100
     ),
-    Control(controller_name="SW2", cb=partial(observer.emit, "ToggleLedRequest", 53))
+    Control(controller_name="SW2", cb=partial(observer.emit, "ToggleLedRequest", 13))
 ]
 

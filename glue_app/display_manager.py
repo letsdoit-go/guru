@@ -10,6 +10,7 @@ except ImportError:
 
 from functools import cache
 from . import observer
+import time
 
 if LUMA_AVAILABLE:
     # Create a GPIO adapter for luma using gpiod
@@ -67,10 +68,15 @@ if LUMA_AVAILABLE:
                     "SushiPluginEvent", cb=self._handle_sushi_plugin_event
                 )
             observer.subscribe(event="DrawText", cb=self.draw)
+            self.last_write = 0
 
         def draw(
             self, text: str, position: tuple[int, int] = (0, 0), fill: str = "white"
         ) -> None:
+            now = time.time()
+            if now - self.last_write < 0.2:
+                return
+            self.last_write = now
             with canvas(self.device) as draw:
                 draw.text(position, text, fill)
 
