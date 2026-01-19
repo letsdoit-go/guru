@@ -6,7 +6,6 @@ from glue_app import observer
 
 
 app = GlueApp(mappings=MAPPINGS, log_level=logging.DEBUG)
-observer.emit("PrintToDisplay", 'Hello NAMM!')
+observer.emit("DrawText", "Hello NAMM!")
 
 app.run()
-

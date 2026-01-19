@@ -80,4 +80,4 @@ else:
         def draw(
             self, text: str, position: tuple[int, int] = (0, 0), fill: str = "white"
         ) -> None:
-            observer.emit("PrintToDisplay", text)
+            observer.emit("PrintToMockDisplay", text)
