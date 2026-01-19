@@ -174,7 +174,7 @@ class SenseiClient:
         if not self.stub:
             raise RuntimeError("Not connected to server. Call connect() first.")
 
-        request = sensei_rpc_pb2.UpdateLedRequest(led_id=led_id)
+        request = sensei_rpc_pb2.UpdateLedRequest(controller_id=led_id, active=active)
         self.stub.UpdateLed(request)
         logger.debug(f"Updated LED {led_id} to {'active' if active else 'inactive'}")
 
