@@ -17,13 +17,12 @@ def subscribe(event: str, cb: Callable) -> None:
 
 def emit(signal: str, *args, **kwargs) -> None:
     if not events.get(signal):
-        events[signal] = []
-    try:
-        for cb in events[signal]:
+        return
+    for cb in list(events.get(signal, [])):
+        try:
             cb(*args, **kwargs)
-            logger.debug(f"Calling {cb} for signal {signal}")
-    except KeyError as e:
-        logger.info(f"No signal called {signal} exists.")
+        except Exception:
+            logger.exception(f"Error in callback {cb} for signal {signal}")
 
 
 def get_event_list():
