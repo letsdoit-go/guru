@@ -6,6 +6,7 @@ including parameter mappings and plugin bypass states.
 """
 
 from typing import Optional, Any
+import asyncio
 import logging
 import time
 
@@ -76,7 +77,7 @@ class PresetManager:
         observer.subscribe("LoadNextPreset", self.load_next_preset)
 
     def _handle_load_preset(self, preset: int) -> None:
-        self.load_preset(preset)
+        return self.load_preset(preset)
 
     def add_preset(self, preset: Preset) -> None:
         """
@@ -90,9 +91,9 @@ class PresetManager:
             f"Added preset '{preset.name}' (total: {len(self.preset_list)})"
         )
 
-    def initialize_presets(self) -> None:
+    async def initialize_presets(self) -> None:
         for preset in self.preset_list:
-            observer.emit("InitPreset", preset)
+            await observer.emit("InitPreset", preset)
 
     def remove_preset(self, index: int) -> bool:
         """
@@ -117,7 +118,7 @@ class PresetManager:
             self._logger.warning(f"Invalid preset index: {index}")
             return False
 
-    def load_preset(self, index: int) -> bool:
+    async def load_preset(self, index: int) -> bool:
         """
         Load a specific preset by index.
 
@@ -139,10 +140,10 @@ class PresetManager:
             self._logger.info(f"Loading preset '{preset.name}' (index {index})")
 
             # Set plugin bypass states
-            self._apply_initial_state(preset)
+            await self._apply_initial_state(preset)
 
             # Update parameter mappings
-            self._update_parameter_mappings(preset)
+            await self._update_parameter_mappings(preset)
 
             # Update current preset index
             old_index = self.current_preset_index
@@ -152,7 +153,7 @@ class PresetManager:
                 f"Successfully loaded preset '{preset.name}' "
                 f"(switched from '{old_preset_name}' at index {old_index})"
             )
-            observer.emit("DrawText", f"Preset {preset.name} loaded successfully")
+            await observer.emit("DrawText", f"Preset {preset.name} loaded successfully")
             return True
 
         except Exception as e:
@@ -176,7 +177,7 @@ class PresetManager:
 
         self._logger.debug("Preset switch pressed - switching to next preset")
         next_index = (self.current_preset_index + 1) % len(self.preset_list)
-        return self.load_preset(next_index)
+        return self.load_preset(next_index)  # Returns coroutine
 
     def load_previous_preset(self) -> bool:
         """
@@ -261,7 +262,7 @@ class PresetManager:
         if event.switch_name == "SW1" and event.pressed:
             self.load_next_preset()
 
-    def _apply_initial_state(self, preset: Preset) -> None:
+    async def _apply_initial_state(self, preset: Preset) -> None:
         """
         Apply plugin bypass states for the given preset.
 
@@ -269,18 +270,18 @@ class PresetManager:
             preset: Preset to apply bypass states for
         """
         for state in preset.bypass_states:
-            observer.emit("SetBypassStateOnPlugin", state)
+            await observer.emit("SetBypassStateOnPlugin", state)
         for state in preset.parameter_states:
-            observer.emit("SetInitialStateOnPlugin", state)
+            await observer.emit("SetInitialStateOnPlugin", state)
 
-    def _update_parameter_mappings(self, preset: Preset) -> None:
+    async def _update_parameter_mappings(self, preset: Preset) -> None:
         """
         Update parameter mappings for the given preset.
 
         Args:
             preset: Preset to update mappings for
         """
-        observer.emit("NewMappings", preset.mappings)
+        await observer.emit("NewMappings", preset.mappings)
 
     def get_mapping_for_controller(self, controller_name: str) -> None:
         """

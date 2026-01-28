@@ -2,10 +2,10 @@
 gRPC client for connecting to PinProxyService and subscribing to hardware events.
 """
 
-import grpc
+import asyncio
+import grpc.aio
 import logging
-import threading
-from typing import Iterator, Optional
+from typing import AsyncIterator
 
 import sensei_rpc_pb2
 import sensei_rpc_pb2_grpc
@@ -29,81 +29,56 @@ class SenseiClient:
         self.server_address = server_address
         self.channel = None
         self.stub = None
-
-        # Threading attributes
-        self._event_thread: Optional[threading.Thread] = None
-        self._running: bool = False
+        self._streaming = False
 
         observer.subscribe("ToggleLedRequest", self._update_led)
         observer.subscribe("PrintToMockDisplay", self._print_to_mock_display)
 
-    def connect(self) -> None:
+    async def connect(self) -> None:
         """Establish connection to the gRPC server."""
         logger.info(f"Connecting to Pin Proxy at {self.server_address}")
-        self.channel = grpc.insecure_channel(self.server_address)
+        self.channel = grpc.aio.insecure_channel(self.server_address)
         self.stub = sensei_rpc_pb2_grpc.SenseiControllerStub(self.channel)
         logger.info("Connected to Pin Proxy")
 
-    def disconnect(self) -> None:
+    async def disconnect(self) -> None:
         """Close the gRPC connection."""
         if self.channel:
             logger.info("Disconnecting from Pin Proxy")
-            self.channel.close()
-            self.stop()
+            self._streaming = False
+            await self.channel.close()
             self.channel = None
             self.stub = None
 
-    def start(self) -> None:
-        """Start the event subscription thread."""
-        if self._event_thread is not None and self._event_thread.is_alive():
-            logger.warning("Event subscription thread is already running")
-            return
-
-        logger.info("Starting event subscription thread")
-        self._running = True
-        self._event_thread = threading.Thread(target=self._event_loop, daemon=True)
-        self._event_thread.start()
-        logger.info("Event subscription thread started")
-
-    def stop(self) -> None:
-        """Stop the event subscription thread gracefully."""
-        if not self._running:
-            return
-
-        logger.info("Stopping event subscription thread")
-        self._running = False
-
-        if self._event_thread is not None:
-            self._event_thread.join(timeout=2.0)
-            if self._event_thread.is_alive():
-                logger.warning("Event subscription thread did not stop within timeout")
-            else:
-                logger.info("Event subscription thread stopped")
-            self._event_thread = None
-
-    def _event_loop(self) -> None:
+    async def stream_events(self) -> None:
         """
-        Internal event loop that runs in a separate thread.
-        Subscribes to all events and emits them via observer.
+        Main TaskGroup task - streams events and emits via observer.
+        Runs until _streaming is set to False.
         """
         try:
-            logger.info("Event loop started, subscribing to all events")
-            for event in self.subscribe_to_events():
-                if not self._running:
-                    logger.info("Event loop stopping (running flag is False)")
+            if not self._streaming:
+                logger.info("Event stream not starting - _streaming is False")
+                return
+
+            logger.info("Starting event stream, subscribing to all events")
+            async for event in self.subscribe_to_events():
+                if not self._streaming:
+                    logger.info("Event stream stopping (streaming flag is False)")
                     break
 
                 # Emit event to observer
-                observer.emit("UiEvent", event)
+                await observer.emit("UiEvent", event)
 
-        except grpc.RpcError as e:
-            logger.error(f"gRPC error in event loop: {e}")
         except Exception as e:
-            logger.error(f"Unexpected error in event loop: {e}", exc_info=True)
+            # Check if it's a gRPC error
+            if hasattr(e, '__class__') and 'AioRpcError' in e.__class__.__name__:
+                logger.error(f"gRPC error in event stream: {e}")
+            else:
+                logger.error(f"Unexpected error in event stream: {e}", exc_info=True)
         finally:
-            logger.info("Event loop ended")
+            logger.info("Event stream ended")
 
-    def refresh_all_states(self) -> None:
+    async def refresh_all_states(self) -> None:
         """
         Request current state of all controllers and build name->ID mapping.
 
@@ -114,13 +89,13 @@ class SenseiClient:
             raise RuntimeError("Not connected to server. Call connect() first.")
 
         logger.info("Requesting controller states via RefreshAllStates()")
-        response = self.stub.RefreshAllStates(sensei_rpc_pb2.GenericVoidValue())
+        response = await self.stub.RefreshAllStates(sensei_rpc_pb2.GenericVoidValue())
 
-    def get_controller_map(self) -> None:
+    async def get_controller_map(self) -> None:
         if not self.stub:
             raise RuntimeError("Not connected to server. Call connect() first.")
         controller_map = {}
-        response = self.stub.GetControllerMap(sensei_rpc_pb2.GenericVoidValue())
+        response = await self.stub.GetControllerMap(sensei_rpc_pb2.GenericVoidValue())
 
         # Map pot names to IDs
         for pot in response.pots:
@@ -133,9 +108,9 @@ class SenseiClient:
             logger.debug(f"Switch: {switch.name} -> ID {switch.id}")
 
         logger.info(f"Discovered {len(controller_map)} controllers")
-        observer.emit("NewControllerMap", controller_map)
+        await observer.emit("NewControllerMap", controller_map)
 
-    def subscribe_to_events(self, controller_ids: list[int] | None = None) -> Iterator:
+    async def subscribe_to_events(self, controller_ids: list[int] | None = None) -> AsyncIterator:
         """
         Subscribe to hardware events stream.
 
@@ -157,13 +132,15 @@ class SenseiClient:
             logger.info("Subscribing to all controller events")
 
         try:
-            for event in self.stub.SubscribeToEvents(request):
+            async for event in self.stub.SubscribeToEvents(request):
                 yield event
-        except grpc.RpcError as e:
-            logger.error(f"gRPC error during event subscription: {e}")
+        except Exception as e:
+            # Check if it's a gRPC error
+            if hasattr(e, '__class__') and 'AioRpcError' in e.__class__.__name__:
+                logger.error(f"gRPC error during event subscription: {e}")
             raise
 
-    def _update_led(self, led_id: int, active: bool) -> None:
+    async def _update_led(self, led_id: int, active: bool) -> None:
         """
         Update the state of an LED.
 
@@ -175,13 +152,13 @@ class SenseiClient:
             raise RuntimeError("Not connected to server. Call connect() first.")
 
         request = sensei_rpc_pb2.UpdateLedRequest(controller_id=led_id, active=active)
-        self.stub.UpdateLed(request)
+        await self.stub.UpdateLed(request)
         logger.debug(f"Updated LED {led_id} to {'active' if active else 'inactive'}")
 
-    def _print_to_mock_display(self, message: str) -> None:
+    async def _print_to_mock_display(self, message: str) -> None:
         if not self.stub:
             raise RuntimeError("Not connected to server. Call connect() first.")
 
         request = sensei_rpc_pb2.WriteToDisplayRequest(data=message)
-        self.stub.WriteToDisplay(request)
+        await self.stub.WriteToDisplay(request)
         logger.debug(f"Printed {message} to display")

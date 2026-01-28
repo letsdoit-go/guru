@@ -145,11 +145,11 @@ class MappingManager:
         ] = {}
         self.controller_map = None
 
-    def initialize_mappings(self, mappings: list) -> None:
+    async def initialize_mappings(self, mappings: list) -> None:
         map = [m for m in mappings if not isinstance(m, Control)]
         if map == []:
             logger.warning("There are no mappings specified.")
-        observer.emit(signal="InitMapping", mappings=map)
+        await observer.emit(signal="InitMapping", mappings=map)
 
     def _update_controller_map(self, controller_map):
         self.controller_map = controller_map
@@ -158,9 +158,9 @@ class MappingManager:
     def _handle_mappings_initialized(self):
         self._mappings_initialized = True
 
-    def _setup_new_mappings(self, mappings: list) -> None:
+    async def _setup_new_mappings(self, mappings: list) -> None:
         self.register_mappings(mappings)
-        self.initialize_mappings(mappings)
+        await self.initialize_mappings(mappings)
 
     def register_mappings(self, mappings: list[PluginParameterMapping]) -> bool:
         """
@@ -236,7 +236,7 @@ class MappingManager:
             case _:
                 raise
 
-    def _dispatch_ui_event(self, event: sensei_rpc_pb2.Event) -> None:
+    async def _dispatch_ui_event(self, event: sensei_rpc_pb2.Event) -> None:
         """
         process an incoming event and route it to the appropriate sushi parameter.
 
@@ -251,33 +251,33 @@ class MappingManager:
 
         match mapping:
             case Control():
-                self._handle_control_event(mapping, event)
+                await self._handle_control_event(mapping, event)
                 return
             case BypassMapping():
-                self._handle_bypass_event(mapping, event)
+                await self._handle_bypass_event(mapping, event)
                 return
             case ComboMapping():
                 for m in mapping.mappings:
-                    self._handle_analog_event(event, m)
+                    await self._handle_analog_event(event, m)
                 return
             case _:
                 if event_type == "analog_ev":
-                    self._handle_analog_event(event, mapping)
+                    await self._handle_analog_event(event, mapping)
                 elif event_type == "toggle_ev":
-                    self._handle_toggle_event(event, mapping)
+                    await self._handle_toggle_event(event, mapping)
                 elif event_type == "relative_ev":
-                    self._handle_relative_event(event, mapping)
+                    await self._handle_relative_event(event, mapping)
                 elif event_type == "range_ev":
-                    self._handle_range_event(event, mapping)
+                    await self._handle_range_event(event, mapping)
                 else:
                     logger.warning(f"unknown event type: {event_type}")
 
-    def _handle_analog_event(self, event: sensei_rpc_pb2.Event, mapping) -> None:
+    async def _handle_analog_event(self, event: sensei_rpc_pb2.Event, mapping) -> None:
         """handle analog controller events (pots, faders)."""
-        self._create_sushi_event(event, mapping, event.analog_ev.value)
+        await self._create_sushi_event(event, mapping, event.analog_ev.value)
 
 
-    def _handle_toggle_event(self, event: sensei_rpc_pb2.Event, mapping) -> None:
+    async def _handle_toggle_event(self, event: sensei_rpc_pb2.Event, mapping) -> None:
         """handle toggle/switch events."""
         # determine value based on switch state
         if isinstance(mapping, SwitchMapping):
@@ -288,14 +288,14 @@ class MappingManager:
             # for regular mappings, treat as binary 1.0/0.0
             value = 1.0 if event.toggle_ev.value else 0.0
 
-        self._create_sushi_event(event, mapping, value)
+        await self._create_sushi_event(event, mapping, value)
 
         logger.debug(
             f"toggle event: controller={event.controller_id}, "
             f"pressed={value}"
         )
 
-    def _create_sushi_event(self, event, mapping, value) -> None:
+    async def _create_sushi_event(self, event, mapping, value) -> None:
         # apply preprocessor if defined
         if mapping.preprocessor:
             value = mapping.preprocessor(value)
@@ -306,19 +306,19 @@ class MappingManager:
         )
 
         if isinstance(mapping, PluginParameterMapping):
-            self._emit_sushi_plugin_event(
+            await self._emit_sushi_plugin_event(
                 track_id=mapping.track_id,
                 plugin_id=mapping.plugin_id,
                 param_id=mapping.param_id,
                 value=value,
             )
         elif isinstance(mapping, TrackParameterMapping):
-            self._emit_sushi_track_event(
+            await self._emit_sushi_track_event(
                 track_id=mapping.track_id,
                 param_id=mapping.param_id,
                 value=value,
             )
-    def _handle_relative_event(self, event: sensei_rpc_pb2.Event, mapping) -> None:
+    async def _handle_relative_event(self, event: sensei_rpc_pb2.Event, mapping) -> None:
         """
         handle relative events (encoders).
 
@@ -340,7 +340,7 @@ class MappingManager:
         # new_value = clamp(new_value, param_min, param_max)
         # self.sushi_client.set_parameter_value(...)
 
-    def _handle_range_event(self, event: sensei_rpc_pb2.Event, mapping) -> None:
+    async def _handle_range_event(self, event: sensei_rpc_pb2.Event, mapping) -> None:
         """
         handle range events (discrete position controllers).
 
@@ -353,7 +353,7 @@ class MappingManager:
         if mapping.preprocessor:
             value = mapping.preprocessor(value)
 
-        self._emit_sushi_plugin_event(
+        await self._emit_sushi_plugin_event(
             track_id=mapping.track_id,
             plugin_id=mapping.plugin_id,
             param_id=mapping.param_id,
@@ -365,19 +365,19 @@ class MappingManager:
             f"Range={value}"
         )
 
-    def _handle_control_event(self, mapping, event) -> None:
+    async def _handle_control_event(self, mapping, event) -> None:
         logger.debug(f"Received control event: {event} -> cb: {mapping.callback}")
         mapping.callback(self._get_value_from_event(event))
 
-    def _handle_bypass_event(self, mapping, event) -> None:
+    async def _handle_bypass_event(self, mapping, event) -> None:
         logger.debug(f"Toggling bypass state for plugin {mapping.controller_name}")
-        self._emit_sushi_bypass_event(mapping.plugin_id)
+        await self._emit_sushi_bypass_event(mapping.plugin_id)
 
-    def _emit_sushi_plugin_event(
+    async def _emit_sushi_plugin_event(
         self, track_id: int, plugin_id: int, param_id: int, value: float
     ) -> None:
         # send to sushi
-        observer.emit(
+        await observer.emit(
             "SushiPluginEvent",
             {
                 "track_id": track_id,
@@ -387,11 +387,11 @@ class MappingManager:
             },
         )
 
-    def _emit_sushi_track_event(
+    async def _emit_sushi_track_event(
         self, track_id: int, param_id: int, value: float
     ) -> None:
         # send to sushi
-        observer.emit(
+        await observer.emit(
             "SushiTrackEvent",
             {
                 "track_id": track_id,
@@ -400,8 +400,8 @@ class MappingManager:
             },
         )
 
-    def _emit_sushi_bypass_event(self, plugin_id: int) -> None:
-        observer.emit("PluginBypassEvent", {"plugin_id": plugin_id})
+    async def _emit_sushi_bypass_event(self, plugin_id: int) -> None:
+        await observer.emit("PluginBypassEvent", {"plugin_id": plugin_id})
 
 
 # example mappings - replace with your actual configuration

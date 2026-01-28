@@ -5,18 +5,14 @@ This application subscribes to gRPC events from hardware controllers and
 routes them to Sushi parameters based on user-defined mappings.
 """
 
+import asyncio
 import logging
 import signal
 import sys
-import time
 
 from .sensei_client import SenseiClient
 from .sushi_client import MappingError, SushiClient
 from .mappings import MappingManager
-
-
-# Global flag for graceful shutdown
-running = True
 
 DEFAULT_SUSHI_ADDRESS = 'localhost:51051'
 if sys.platform == 'win32':
@@ -55,13 +51,7 @@ class GlueApp:
 
         setup_logging(log_level)
         self.logger = logging.getLogger(__name__)
-
-        # Register signal handler for graceful shutdown
-        signal.signal(signal.SIGINT, self._signal_handler)
-
-        self.logger.info("Starting Pedal Glue App")
-
-        self.running = True
+        self._shutdown_event = asyncio.Event()
 
         # Check if mappings are defined
         if not self.mappings:
@@ -70,67 +60,107 @@ class GlueApp:
                 "The app will run but won't control any parameters."
             )
 
-        try:
-            # Initialize Sensei client
-            self.logger.info("Initializing Sensei client")
-            self.sensei_client = SenseiClient(self.sensei_address)
-            self.sensei_client.connect()
-            self.sensei_client.start()  # Starts the listening thread
+        # Initialize clients (but don't connect yet)
+        self.sensei_client = SenseiClient(self.sensei_address)
+        self.mapping_manager = MappingManager()
+        self.sushi_client = SushiClient(self.sushi_address)
 
-            # MappingManager must exist before SenseiClient.refresh_all_states
-            self.mapping_manager = MappingManager()
+    def _setup_signal_handlers(self):
+        """Setup asyncio-compatible signal handlers."""
+        loop = asyncio.get_running_loop()
 
-            # Get controller name->ID
-            self.logger.info("Fetching controller states")
-            while True:
+        def signal_handler():
+            self.logger.info("Shutdown signal received, stopping...")
+            self._shutdown_event.set()
+
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, signal_handler)
+
+    async def initialize(self) -> bool:
+        """
+        Initialize connections to Sensei and Sushi.
+
+        Returns:
+            True if initialization succeeded, False otherwise.
+        """
+        self.logger.info("Starting Pedal Glue App")
+
+        # Connect to Sensei client with retry
+        self.logger.info("Initializing Sensei client")
+        await self.sensei_client.connect()
+
+        # Get controller name->ID mapping with retry
+        self.logger.info("Fetching controller states")
+        while not self._shutdown_event.is_set():
+            try:
+                await self.sensei_client.get_controller_map()
+                break
+            except Exception as e:
+                self.logger.info("Pin proxy unavailable. Retrying in 5s...")
                 try:
-                    self.sensei_client.get_controller_map()
-                    break
-                except Exception as e:
-                    if not self.running:
-                        return 1
-                    self.logger.info("Pin proxy unavailable. Retrying in 5s...")
-                    time.sleep(5)
+                    await asyncio.wait_for(
+                        self._shutdown_event.wait(), timeout=5.0
+                    )
+                    return False  # Shutdown requested during retry
+                except asyncio.TimeoutError:
+                    pass  # Continue retry
 
-            # Initialize Sushi client
-            self.logger.info("Initializing Sushi client")
-            self.sushi_client = SushiClient(self.sushi_address)
-            if not self.sushi_client.connect():
-                self.logger.error("Sushi does not seem to be running. Exiting now.")
-                sys.exit(1)
+        # Connect to Sushi client
+        self.logger.info("Initializing Sushi client")
+        if not await self.sushi_client.connect():
+            self.logger.error("Sushi does not seem to be running. Exiting now.")
+            return False
 
-            # If the app needs to get notifications from Sushi, it should subscribe to those here.
-            # self.sushi_client.subscribe_to_parameter_updates()
-
-            # Initialize mappings with Sushi
-            if self.mappings:
+        # Initialize mappings with Sushi
+        if self.mappings:
+            try:
                 self.logger.info("Initializing mappings")
-                self.mapping_manager.initialize_mappings(self.mappings)
+                await self.mapping_manager.initialize_mappings(self.mappings)
                 self.mapping_manager.register_mappings(self.mappings)
-            # while self.running:
-            #     time.sleep(1)
-        except MappingError:
-            self.logger.info("Exiting because of a fatal error.")
-            sys.exit(0)
-        except Exception as e:
-            self.logger.error(f"Fatal error: {e}", exc_info=True)
-            sys.exit(1)
+            except MappingError:
+                self.logger.error("Mapping initialization failed.")
+                return False
 
-    def _signal_handler(self, sig, frame):
-        """Handle SIGINT (Ctrl+C) for graceful shutdown."""
-        self.logger.info("Shutdown signal received, stopping...")
-        self.running = False
+        return True
 
-    def run(self) -> None:
-        while self.running:
-            time.sleep(1)
+    async def run(self) -> int:
+        """
+        Run the application with async event loop and TaskGroup.
 
-    def stop(self) -> None:
-        self.running = False
-        # Cleanup
+        Returns:
+            Exit code (0 for success, 1 for failure).
+        """
+        self._setup_signal_handlers()
+
+        # Initialize connections
+        if not await self.initialize():
+            return 1
+
+        try:
+            # Run concurrent tasks
+            self.sensei_client._streaming = True
+            async with asyncio.TaskGroup() as tg:
+                tg.create_task(self.sensei_client.stream_events())
+                tg.create_task(self._wait_for_shutdown())
+        except* Exception as eg:
+            # TaskGroup wraps exceptions in ExceptionGroup
+            for exc in eg.exceptions:
+                self.logger.error(f"Task error: {exc}", exc_info=exc)
+        finally:
+            await self.stop()
+
+        return 0
+
+    async def _wait_for_shutdown(self):
+        """Wait for shutdown signal."""
+        await self._shutdown_event.wait()
+        self.logger.info("Shutdown event triggered")
+
+    async def stop(self) -> None:
+        """Cleanup connections."""
         self.logger.info("Cleaning up connections")
         if self.sensei_client:
-            self.sensei_client.disconnect()
+            await self.sensei_client.disconnect()
         if self.sushi_client:
             self.sushi_client.disconnect()
         self.logger.info("Shutdown complete")
