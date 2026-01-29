@@ -19,6 +19,11 @@ if sys.platform == 'win32':
     DEFAULT_SUSHI_ADDRESS = 'localhost:510'
 
 
+class ShutdownSignalException(Exception):
+    """Exception raised by the shutdown signal monitoring Task"""
+    pass
+
+
 def setup_logging(level: int = logging.INFO) -> None:
     """Configure logging for the application."""
     logging.basicConfig(
@@ -95,7 +100,7 @@ class GlueApp:
             try:
                 await self.sensei_client.get_controller_map()
                 break
-            except Exception as e:
+            except Exception:
                 self.logger.info("Pin proxy unavailable. Retrying in 5s...")
                 try:
                     await asyncio.wait_for(
@@ -155,6 +160,7 @@ class GlueApp:
         """Wait for shutdown signal."""
         await self._shutdown_event.wait()
         self.logger.info("Shutdown event triggered")
+        raise ShutdownSignalException
 
     async def stop(self) -> None:
         """Cleanup connections."""
