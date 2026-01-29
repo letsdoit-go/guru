@@ -137,10 +137,6 @@ class GlueApp:
         """
         self._setup_signal_handlers()
 
-        # Initialize connections
-        if not await self.initialize():
-            return 1
-
         try:
             # Run concurrent tasks
             self.sensei_client._streaming = True
