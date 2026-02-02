@@ -55,7 +55,7 @@ class GlueApp:
         self.sushi_address = sushi_address
 
         setup_logging(log_level)
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger('APP')
         self._shutdown_event = asyncio.Event()
 
         # Check if mappings are defined
