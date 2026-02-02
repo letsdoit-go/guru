@@ -9,7 +9,7 @@ from elkpy import sushierrors
 from .presets import Preset
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('SUSHI')
 
 
 class MappingError(Exception):

@@ -12,7 +12,7 @@ import sensei_rpc_pb2
 from . import observer
 import logging
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('MAPPINGS')
 
 
 class Control:

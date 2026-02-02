@@ -65,7 +65,7 @@ class PresetManager:
             event_bus: Event bus for listening to preset switch events
             sushi_controller: Sushi controller for audio graph manipulation
         """
-        self._logger = logging.getLogger(__name__)
+        self._logger = logging.getLogger('PRESETS')
 
         self.preset_list: list[Preset] = []
         self.current_preset_index: int = 0

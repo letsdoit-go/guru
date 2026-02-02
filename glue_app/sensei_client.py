@@ -13,15 +13,15 @@ import sensei_rpc_pb2_grpc
 from . import observer
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('SENSEI')
 
 
 class SenseiClient:
-    """Client for connecting to the Pin Proxy gRPC service."""
+    """Client for connecting to the Sensei gRPC service."""
 
     def __init__(self, server_address: str = "localhost:50051"):
         """
-        Initialize the Pin Proxy client.
+        Initialize the Sensei client.
 
         Args:
             server_address: Address of the gRPC server (host:port)
@@ -36,15 +36,15 @@ class SenseiClient:
 
     async def connect(self) -> None:
         """Establish connection to the gRPC server."""
-        logger.info(f"Connecting to Pin Proxy at {self.server_address}")
+        logger.info(f"Connecting to Sensei at {self.server_address}")
         self.channel = grpc.aio.insecure_channel(self.server_address)
         self.stub = sensei_rpc_pb2_grpc.SenseiControllerStub(self.channel)
-        logger.info("Connected to Pin Proxy")
+        logger.info("Connected to Sensei")
 
     async def disconnect(self) -> None:
         """Close the gRPC connection."""
         if self.channel:
-            logger.info("Disconnecting from Pin Proxy")
+            logger.info("Disconnecting from Sensei")
             self._streaming = False
             await self.channel.close()
             self.channel = None
