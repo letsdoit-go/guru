@@ -1,5 +1,5 @@
 """
-gRPC client for connecting to PinProxyService and subscribing to hardware events.
+gRPC client for connecting to SenseiService and subscribing to hardware events.
 """
 
 import asyncio

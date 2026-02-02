@@ -46,7 +46,7 @@ class GlueApp:
 
         Args:
             mappings: List of mapping objects (PluginParameterMapping, etc.)
-            sensei_address: Address of the Pin Proxy gRPC server
+            sensei_address: Address of the Sensei gRPC server
             sushi_address: Address of the Sushi gRPC server
             log_level: Logging level (e.g., logging.DEBUG, logging.INFO)
         """
@@ -101,7 +101,7 @@ class GlueApp:
                 await self.sensei_client.get_controller_map()
                 break
             except Exception:
-                self.logger.info("Pin proxy unavailable. Retrying in 5s...")
+                self.logger.info("Sensei unavailable. Retrying in 5s...")
                 try:
                     await asyncio.wait_for(
                         self._shutdown_event.wait(), timeout=5.0
@@ -143,10 +143,11 @@ class GlueApp:
             async with asyncio.TaskGroup() as tg:
                 tg.create_task(self.sensei_client.stream_events())
                 tg.create_task(self._wait_for_shutdown())
-        except* Exception as eg:
+        except* ShutdownSignalException as eg:
             # TaskGroup wraps exceptions in ExceptionGroup
-            for exc in eg.exceptions:
-                self.logger.error(f"Task error: {exc}", exc_info=exc)
+            self.logger.info("Shutting down...")
+            # for exc in eg.exceptions:
+            #     self.logger.error(f"Task error: {exc}", exc_info=exc)
         finally:
             await self.stop()
 
