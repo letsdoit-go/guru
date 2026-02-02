@@ -91,7 +91,7 @@ class SenseiClient:
         logger.info("Requesting controller states via RefreshAllStates()")
         response = await self.stub.RefreshAllStates(sensei_rpc_pb2.GenericVoidValue())
 
-    async def get_controller_map(self) -> None:
+    async def get_controller_map(self) -> dict:
         if not self.stub:
             raise RuntimeError("Not connected to server. Call connect() first.")
         controller_map = {}
@@ -109,6 +109,7 @@ class SenseiClient:
 
         logger.info(f"Discovered {len(controller_map)} controllers")
         await observer.emit("NewControllerMap", controller_map)
+        return response
 
     async def subscribe_to_events(self, controller_ids: list[int] | None = None) -> AsyncIterator:
         """
@@ -162,3 +163,8 @@ class SenseiClient:
         request = sensei_rpc_pb2.WriteToDisplayRequest(data=message)
         await self.stub.WriteToDisplay(request)
         logger.debug(f"Printed {message} to display")
+
+
+if __name__ == '__main__':
+    sc = SenseiClient()
+    print(asyncio.run(sc.get_controller_map()))

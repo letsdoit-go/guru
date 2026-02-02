@@ -9,7 +9,7 @@ An event-driven bridge application that connects hardware controllers (pedals, p
 All communication between managers happens through an internal pub/sub event system (`observer.py`). Components emit events and subscribe to events without direct dependencies on each other:
 
 ```
-Hardware → Pin Proxy → [UiEvent] → Mapping Manager → [SushiEvent] → Sushi Client → Audio Engine
+Hardware → Sensei Client → [UiEvent] → Mapping Manager → [SushiEvent] → Sushi Client → Audio Engine
                 ↓                          ↓                  ↓
             [NewControllerMap]          [InitMapping]    [MappingsInitialized]
 ```
@@ -19,26 +19,28 @@ Hardware → Pin Proxy → [UiEvent] → Mapping Manager → [SushiEvent] → Su
 #### 1. SenseiClient (sensei_client.py)
 **Hardware Interface Manager**
 
-Connects to the Sensei gRPC server and streams hardware controller events.
+Sensei is the abstraction that interfaces with hardware controllers. It has a gRPC backend to emit events 
+for controller updates.
+
+SenseiClient connects to the Sensei gRPC server and streams hardware controller events.
 
 **Responsibilities:**
 - Establishes gRPC connection to Sensei server
-- Runs event subscription in a background thread
-- Discovers available hardware controllers via `RefreshAllStates()`
+- Discovers available hardware controllers via `GetControllerMap()`
 - Translates hardware events to internal events
 - Controls LEDs on the board 
-- Prints to the mock display (soon to be deprecated)
+- [dev workflow] Prints to the mock display
 
 **Events Emitted:**
 - `UiEvent` - Hardware controller events (analog, toggle, relative, range)
   - Emitted continuously from background thread as hardware events occur
   - Payload: `sensei_rpc_pb2.Event` (contains controller_id, timestamp, value)
 - `NewControllerMap` - Controller discovery results
-  - Emitted once after `refresh_all_states()` completes
+  - Emitted once after `get_controller_map()` completes
   - Payload: `dict[str, int]` mapping controller names to IDs
 
 **Events Subscribed:**
-- `PrintToDisplay` - 
+- `PrintToMockDisplay` - 
 - `ToggleLedRequest`
 
 #### 2. MappingManager (mappings.py)
@@ -95,7 +97,7 @@ Wraps elkpy's SushiController and manages communication with the Sushi audio eng
 
 ### Startup Sequence
 ```
-1. SenseiClient.refresh_all_states()
+1. SenseiClient.get_controller_map()
    → emits NewControllerMap
    → MappingManager receives controller map
 
@@ -136,6 +138,8 @@ Wraps elkpy's SushiController and manages communication with the Sushi audio eng
 | `SushiPluginEvent` | MappingManager | SushiClient | `dict` (track_id, plugin_id, param_id, value) | Request plugin parameter change |
 | `SushiTrackEvent` | MappingManager | SushiClient | `dict` (track_id, param_id, value) | Request track parameter change |
 
+---
+
 ## Installation
 
 This project uses [uv](https://github.com/astral-sh/uv) for dependency management.
@@ -157,7 +161,7 @@ The gRPC code is automatically compiled from `sensei_rpc.proto` at runtime by `S
 Edit `main.py` to configure connection addresses:
 
 ```python
-SENSEI_ADDRESS = "localhost:50051"  # Pin Proxy gRPC server
+SENSEI_ADDRESS = "localhost:50051"  # Sensei gRPC server
 SUSHI_ADDRESS = "localhost:51051"       # Sushi gRPC server
 LOG_LEVEL = logging.INFO
 ```
@@ -167,7 +171,7 @@ LOG_LEVEL = logging.INFO
 Create your mappings in `mappings.py`:
 
 ```python
-from mappings import PluginParameterMapping, TrackParameterMapping, SwitchMapping
+from mappings import PluginParameterMapping, TrackParameterMapping, SwitchMapping, ComboMapping
 
 MAPPINGS = [
     # Map a pot to a plugin parameter
@@ -176,7 +180,7 @@ MAPPINGS = [
         plugin_name="distortion",
         parameter_name="gain",
         controller_name="POT1",
-        preprocessor=lambda x: x * 100  # Scale 0-1 to 0-100
+        preprocessor=lambda x: 0.4 + x * 0.6  # Linear interpolation
     ),
 
     # Map a pot directly to a track parameter
@@ -186,17 +190,46 @@ MAPPINGS = [
         controller_name="POT2",
     ),
 
-    # Map a switch with specific on/off values
+    # Map a switch to start playing a wave file
     SwitchMapping(
         track_name="guitar",
-        plugin_name="reverb",
-        parameter_name="bypass",
+        plugin_name="wav_streamer",
+        parameter_name="playing",
         controller_name="SW1",
         pressed_value=1.0,
         released_value=0.0
     ),
+    
+    # Map a switch to bypass 2 plugins
+    ComboMapping(
+        controller_name="SW2",
+        mappings=[
+            BypassMapping(
+                plugin_name="reverb",
+            ),
+            BypassMapping(
+                plugin_name="distortion",
+            )
+        ]
+    )
 ]
 ```
+
+Be aware that track, plugin and parameter names *MUST* match their counterparts in Sushi's configuration file.
+Similarly, controller names *MUST* match theirs in Sensei's configuration.
+
+**NOTE**: If you do not have access to Sensei configuration file (`sensei_config.json`), you can get it from 
+a running Sensei with:
+
+```python
+uv run sensei_client.py
+```
+
+Preprocessors are straight-forward Python lambdas. They default to None.
+
+#### Combo mappings
+`ComboMapping` is an easy way to assign several mappings to the same controller. Actually it is the only way!
+
 
 ## Usage
 
@@ -245,13 +278,13 @@ Discrete positions from rotary switches, multi-position switches.
 
 ```bash
 # Run all tests
-uv run pytest
+uv run --extra dev pytest
 
 # Run with coverage
-uv run pytest --cov
+uv run --extra dev pytest --cov
 
 # Run specific test file
-uv run pytest test_sensei_client.py
+uv run --extra dev pytest test_sensei_client.py
 ```
 
 ### Regenerating gRPC Code
@@ -268,6 +301,8 @@ Adjust `LOG_LEVEL` in `main.py`:
 - `logging.DEBUG` - Verbose output including all events and observer activity
 - `logging.INFO` - Normal operation logs (default)
 - `logging.WARNING` - Only warnings and errors
+
+---
 
 ## Extending the System
 
@@ -286,7 +321,7 @@ Example: Adding LED feedback support:
 # In MappingManager - emit LED updates
 observer.emit("LED_UPDATE", led_id=controller_id, active=True)
 
-# In PinProxyClient - subscribe and forward to hardware
+# In SenseiClient - subscribe and forward to hardware
 observer.subscribe("LED_UPDATE", self._handle_led_update)
 
 def _handle_led_update(self, led_id: int, active: bool):
