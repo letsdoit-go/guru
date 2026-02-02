@@ -160,7 +160,7 @@ class PresetManager:
             self._logger.error(f"Failed to load preset '{preset.name}': {e}")
             return False
 
-    def load_next_preset(self, value=None) -> bool:
+    async def load_next_preset(self, value=None) -> bool:
         """
         Load the next preset in the list (cycles back to first).
 
@@ -177,9 +177,9 @@ class PresetManager:
 
         self._logger.debug("Preset switch pressed - switching to next preset")
         next_index = (self.current_preset_index + 1) % len(self.preset_list)
-        return self.load_preset(next_index)  # Returns coroutine
+        return await self.load_preset(next_index)  # Returns coroutine
 
-    def load_previous_preset(self) -> bool:
+    async def load_previous_preset(self) -> bool:
         """
         Load the previous preset in the list (cycles to last).
 
@@ -191,7 +191,7 @@ class PresetManager:
             return False
 
         prev_index = (self.current_preset_index - 1) % len(self.preset_list)
-        return self.load_preset(prev_index)
+        return await self.load_preset(prev_index)
 
     def get_current_preset(self) -> Optional[Preset]:
         """
