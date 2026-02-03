@@ -85,9 +85,9 @@ if LUMA_AVAILABLE:
             with canvas(self.device) as draw:
                 draw.text(position, text, fill)
 
-        def _handle_sushi_plugin_event(self, event) -> None:
+        async def _handle_sushi_plugin_event(self, event) -> None:
             name = self._get_param_name_by_event(event["plugin_id"], event["param_id"])
-            return self.draw(f"{name}: {event['value']:.2f}")
+            return await self.draw(f"{name}: {event['value']:.2f}")
 
         @cache
         def _get_param_name_by_event(self, proc_id: int, param_id: int) -> str:
@@ -115,9 +115,9 @@ else:
         ) -> None:
             await observer.emit("PrintToMockDisplay", text)
 
-        def _handle_sushi_plugin_event(self, event) -> None:
+        async def _handle_sushi_plugin_event(self, event) -> None:
             name = self._get_param_name_by_event(event["plugin_id"], event["param_id"])
-            return self.draw(f"{name}: {event['value']:.2f}")
+            return await self.draw(f"{name}: {event['value']:.2f}")
 
         @cache
         def _get_param_name_by_event(self, proc_id: int, param_id: int) -> str:
