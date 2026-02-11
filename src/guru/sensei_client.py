@@ -7,8 +7,8 @@ import grpc.aio
 import logging
 from typing import AsyncIterator
 
-import sensei_rpc_pb2
-import sensei_rpc_pb2_grpc
+from . import sensei_rpc_pb2
+from . import sensei_rpc_pb2_grpc
 
 from . import observer
 

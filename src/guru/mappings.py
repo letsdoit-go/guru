@@ -8,7 +8,7 @@ returned by RefreshAllStates().
 
 from typing import Callable
 from elkpy.sushicontroller import SushiController
-import sensei_rpc_pb2
+from . import sensei_rpc_pb2
 from . import observer
 import logging
 

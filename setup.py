@@ -40,6 +40,17 @@ class BuildWithProtos(build_py):
 
         if result != 0:
             raise RuntimeError(f"Failed to compile {proto_file}")
+        
+        # Fix imports in generated gRPC file
+        grpc_file = output_dir / "sensei_rpc_pb2_grpc.py"
+        if grpc_file.exists():
+            content = grpc_file.read_text()
+            content = content.replace(
+                "import sensei_rpc_pb2 as sensei__rpc__pb2",
+                "from . import sensei_rpc_pb2 as sensei__rpc__pb2"
+            )
+            grpc_file.write_text(content)
+            print(f"✓ Fixed imports in {grpc_file.name}")
 
         print(f"✓ Protos compiled to {output_dir}")
 
