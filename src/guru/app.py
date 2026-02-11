@@ -14,13 +14,14 @@ from .sensei_client import SenseiClient
 from .sushi_client import MappingError, SushiClient
 from .mappings import MappingManager
 
-DEFAULT_SUSHI_ADDRESS = 'localhost:51051'
-if sys.platform == 'win32':
-    DEFAULT_SUSHI_ADDRESS = 'localhost:510'
+DEFAULT_SUSHI_ADDRESS = "localhost:51051"
+if sys.platform == "win32":
+    DEFAULT_SUSHI_ADDRESS = "localhost:510"
 
 
 class ShutdownSignalException(Exception):
     """Exception raised by the shutdown signal monitoring Task"""
+
     pass
 
 
@@ -34,6 +35,9 @@ def setup_logging(level: int = logging.INFO) -> None:
 
 
 class GlueApp:
+    """This is the main app class. An application must instantiate one of those.
+    It MUST also be initialized with self.initialize()"""
+
     def __init__(
         self,
         mappings: list | None = None,
@@ -42,8 +46,6 @@ class GlueApp:
         log_level: int = logging.INFO,
     ):
         """
-        Initialize the Pedal Glue App.
-
         Args:
             mappings: List of mapping objects (PluginParameterMapping, etc.)
             sensei_address: Address of the Sensei gRPC server
@@ -55,7 +57,7 @@ class GlueApp:
         self.sushi_address = sushi_address
 
         setup_logging(log_level)
-        self.logger = logging.getLogger('APP')
+        self.logger = logging.getLogger("APP")
         self._shutdown_event = asyncio.Event()
 
         # Check if mappings are defined
@@ -83,7 +85,8 @@ class GlueApp:
 
     async def initialize(self) -> bool:
         """
-        Initialize connections to Sensei and Sushi.
+        Initialize connections to Sensei and Sushi. This MUST be run before any calls to
+        Sensei or Sushi are made, typically directly after instantiation.
 
         Returns:
             True if initialization succeeded, False otherwise.
@@ -103,9 +106,7 @@ class GlueApp:
             except Exception:
                 self.logger.info("Sensei unavailable. Retrying in 5s...")
                 try:
-                    await asyncio.wait_for(
-                        self._shutdown_event.wait(), timeout=5.0
-                    )
+                    await asyncio.wait_for(self._shutdown_event.wait(), timeout=5.0)
                     return False  # Shutdown requested during retry
                 except asyncio.TimeoutError:
                     pass  # Continue retry
@@ -167,8 +168,3 @@ class GlueApp:
         if self.sushi_client:
             self.sushi_client.disconnect()
         self.logger.info("Shutdown complete")
-
-
-if __name__ == "__main__":
-    app = GlueApp()
-    sys.exit(app.run())

@@ -1,8 +1,18 @@
-# Pedal Glue App
+# Guru
 
-An event-driven bridge application that connects hardware controllers (pedals, pots, switches) to the Sushi audio engine. The application uses an internal event system for decoupled communication between all components.
+An asyncio-based Python package for building event-driven bridge applications that connect hardware controllers (pedals, pots, switches) to the Sushi audio engine. Built on Python's native asyncio, guru uses async/await throughout with an internal event system for decoupled communication between all components.
 
 ## Architecture
+
+### Asyncio Design
+
+Guru is built entirely on Python's asyncio:
+
+- **Async/await throughout**: All I/O operations use async/await for efficient concurrent execution
+- **TaskGroup management**: Uses `asyncio.TaskGroup` to manage concurrent tasks with proper error handling
+- **Async gRPC**: Both Sensei and Sushi clients use `grpc.aio` for non-blocking gRPC communication
+- **Async observer**: The event system supports both synchronous and asynchronous callbacks
+- **Graceful shutdown**: Signal handlers integrated with asyncio for clean shutdown
 
 ### Event-Driven Design
 
@@ -19,28 +29,28 @@ Hardware → Sensei Client → [UiEvent] → Mapping Manager → [SushiEvent] �
 #### 1. SenseiClient (sensei_client.py)
 **Hardware Interface Manager**
 
-Sensei is the abstraction that interfaces with hardware controllers. It has a gRPC backend to emit events 
+Sensei is the abstraction that interfaces with hardware controllers. It has a gRPC backend to emit events
 for controller updates.
 
-SenseiClient connects to the Sensei gRPC server and streams hardware controller events.
+SenseiClient connects to the Sensei gRPC server and streams hardware controller events asynchronously.
 
 **Responsibilities:**
-- Establishes gRPC connection to Sensei server
+- Establishes async gRPC connection to Sensei server using `grpc.aio`
 - Discovers available hardware controllers via `GetControllerMap()`
-- Translates hardware events to internal events
-- Controls LEDs on the board 
+- Streams hardware events asynchronously in background task
+- Controls LEDs on the board
 - [dev workflow] Prints to the mock display
 
 **Events Emitted:**
 - `UiEvent` - Hardware controller events (analog, toggle, relative, range)
-  - Emitted continuously from background thread as hardware events occur
+  - Emitted continuously from async stream as hardware events occur
   - Payload: `sensei_rpc_pb2.Event` (contains controller_id, timestamp, value)
 - `NewControllerMap` - Controller discovery results
   - Emitted once after `get_controller_map()` completes
   - Payload: `dict[str, int]` mapping controller names to IDs
 
 **Events Subscribed:**
-- `PrintToMockDisplay` - 
+- `PrintToMockDisplay` -
 - `ToggleLedRequest`
 
 #### 2. MappingManager (mappings.py)
@@ -76,7 +86,7 @@ Central hub that routes hardware events to Sushi parameters based on user-define
 Wraps elkpy's SushiController and manages communication with the Sushi audio engine.
 
 **Responsibilities:**
-- Establishes connection to Sushi gRPC server
+- Establishes connection to Sushi gRPC server (elkpy uses sync gRPC)
 - Initializes mappings by resolving string names to numeric IDs
 - Executes parameter changes in Sushi via elkpy
 - [Optional] subscribes to parameter updates from Sushi
@@ -97,24 +107,32 @@ Wraps elkpy's SushiController and manages communication with the Sushi audio eng
 
 ### Startup Sequence
 ```
-1. SenseiClient.get_controller_map()
+1. GlueApp.initialize() called
+   → SenseiClient.connect() establishes async gRPC channel
+   → SenseiClient.get_controller_map() fetches controllers
+
+2. SenseiClient.get_controller_map()
    → emits NewControllerMap
    → MappingManager receives controller map
 
-2. MappingManager.initialize_mappings()
+3. MappingManager.initialize_mappings()
    → emits InitMapping
    → SushiClient resolves track/plugin/parameter names to IDs
 
-3. SushiClient completes initialization
+4. SushiClient completes initialization
    → emits MappingsInitialized
    → MappingManager confirms ready state
+
+5. GlueApp.run() starts TaskGroup
+   → SenseiClient.stream_events() task starts
+   → Event processing begins
 ```
 
 ### Runtime Event Processing
 ```
 1. Hardware pot turned
    → Sensei sends gRPC event
-   → SenseiClient receives in background thread
+   → SenseiClient receives in async stream
    → emits UiEvent (AnalogEvent, controller_id=5, value=0.75)
 
 2. MappingManager receives UiEvent
@@ -152,26 +170,31 @@ uv sync
 uv sync --extra dev
 ```
 
-The gRPC code is automatically compiled from `sensei_rpc.proto` at runtime by `SenseiClient`.
+The gRPC code is automatically compiled from `sensei_rpc.proto` during package build.
 
 ## Configuration
 
 ### 1. Server Addresses
 
-Edit `main.py` to configure connection addresses:
+Configure connection addresses when creating your `GlueApp` instance:
 
 ```python
-SENSEI_ADDRESS = "localhost:50051"  # Sensei gRPC server
-SUSHI_ADDRESS = "localhost:51051"       # Sushi gRPC server
-LOG_LEVEL = logging.INFO
+from guru.app import GlueApp
+
+app = GlueApp(
+    mappings=MAPPINGS,
+    sensei_address="localhost:50051",  # Sensei gRPC server
+    sushi_address="localhost:51051",   # Sushi gRPC server
+    log_level=logging.INFO
+)
 ```
 
 ### 2. Controller Mappings
 
-Create your mappings in `mappings.py`:
+Create your mappings using the mapping classes from `guru.mappings`:
 
 ```python
-from mappings import PluginParameterMapping, TrackParameterMapping, SwitchMapping, ComboMapping
+from guru.mappings import PluginParameterMapping, TrackParameterMapping, SwitchMapping, ComboMapping
 
 MAPPINGS = [
     # Map a pot to a plugin parameter
@@ -199,7 +222,7 @@ MAPPINGS = [
         pressed_value=1.0,
         released_value=0.0
     ),
-    
+
     # Map a switch to bypass 2 plugins
     ComboMapping(
         controller_name="SW2",
@@ -218,11 +241,20 @@ MAPPINGS = [
 Be aware that track, plugin and parameter names *MUST* match their counterparts in Sushi's configuration file.
 Similarly, controller names *MUST* match theirs in Sensei's configuration.
 
-**NOTE**: If you do not have access to Sensei configuration file (`sensei_config.json`), you can get it from 
+**NOTE**: If you do not have access to Sensei configuration file (`sensei_config.json`), you can get it from
 a running Sensei with:
 
 ```python
-uv run sensei_client.py
+import asyncio
+from guru.sensei_client import SenseiClient
+
+async def main():
+    client = SenseiClient()
+    await client.connect()
+    controller_map = await client.get_controller_map()
+    print(controller_map)
+
+asyncio.run(main())
 ```
 
 Preprocessors are straight-forward Python lambdas. They default to None.
@@ -233,9 +265,32 @@ Preprocessors are straight-forward Python lambdas. They default to None.
 
 ## Usage
 
-```bash
-# Run the application
-uv run python main.py
+### Basic Usage
+
+```python
+import asyncio
+import logging
+from guru.app import GlueApp
+from your_mappings import MAPPINGS
+
+async def main():
+    # Create the app
+    app = GlueApp(
+        mappings=MAPPINGS,
+        sensei_address="localhost:50051",
+        sushi_address="localhost:51051",
+        log_level=logging.INFO
+    )
+
+    # Initialize connections
+    if not await app.initialize():
+        return 1
+
+    # Run the event loop
+    return await app.run()
+
+if __name__ == "__main__":
+    exit(asyncio.run(main()))
 ```
 
 The application will:
@@ -243,10 +298,36 @@ The application will:
 2. Discover available controllers (`NewControllerMap` event)
 3. Initialize SushiClient and connect to audio engine
 4. Initialize all mappings (`InitMapping` → `MappingsInitialized` events)
-5. Start background thread subscribing to hardware events
+5. Start async task group with event streaming task
 6. Process events in real-time through the event system
 
 Press `Ctrl+C` to stop gracefully.
+
+### Advanced Usage: Emitting Events
+
+You can emit events to the system from your code:
+
+```python
+import asyncio
+from guru.app import GlueApp
+from guru import observer
+from your_mappings import MAPPINGS
+
+async def main():
+    app = GlueApp(mappings=MAPPINGS, log_level=logging.DEBUG)
+
+    # Initialize first
+    await app.initialize()
+
+    # Now you can emit events
+    await observer.emit("PrintToMockDisplay", "Hello NAMM!")
+
+    # Start the event loop
+    return await app.run()
+
+if __name__ == "__main__":
+    exit(asyncio.run(main()))
+```
 
 ## Hardware Event Types
 
@@ -284,7 +365,7 @@ uv run --extra dev pytest
 uv run --extra dev pytest --cov
 
 # Run specific test file
-uv run --extra dev pytest test_sensei_client.py
+uv run --extra dev pytest tests/test_sensei_client.py
 ```
 
 ### Regenerating gRPC Code
@@ -292,12 +373,12 @@ uv run --extra dev pytest test_sensei_client.py
 After modifying `sensei_rpc.proto`:
 
 ```bash
-uv run python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. --pyi_out=. sensei_rpc.proto
+python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. --pyi_out=. src/guru/sensei-grpc-api/sensei_rpc.proto
 ```
 
 ### Logging
 
-Adjust `LOG_LEVEL` in `main.py`:
+Adjust `log_level` when creating the `GlueApp`:
 - `logging.DEBUG` - Verbose output including all events and observer activity
 - `logging.INFO` - Normal operation logs (default)
 - `logging.WARNING` - Only warnings and errors
@@ -311,21 +392,21 @@ Adjust `LOG_LEVEL` in `main.py`:
 The event-driven architecture makes it easy to add new features:
 
 1. **Define the event** - Choose a descriptive name (e.g., `LED_UPDATE`)
-2. **Emit the event** - Call `observer.emit("LED_UPDATE", led_id=1, state=True)` from any manager
+2. **Emit the event** - Call `await observer.emit("LED_UPDATE", led_id=1, state=True)` from any manager
 3. **Subscribe to the event** - Call `observer.subscribe("LED_UPDATE", callback_function)` in any manager
-4. **Implement the callback** - Process the event in the subscriber
+4. **Implement the callback** - Process the event in the subscriber (can be sync or async)
 
 Example: Adding LED feedback support:
 
 ```python
 # In MappingManager - emit LED updates
-observer.emit("LED_UPDATE", led_id=controller_id, active=True)
+await observer.emit("LED_UPDATE", led_id=controller_id, active=True)
 
 # In SenseiClient - subscribe and forward to hardware
 observer.subscribe("LED_UPDATE", self._handle_led_update)
 
-def _handle_led_update(self, led_id: int, active: bool):
-    self.update_led(led_id, active)
+async def _handle_led_update(self, led_id: int, active: bool):
+    await self.update_led(led_id, active)
 ```
 
 ### Benefits of Event-Driven Design
@@ -333,7 +414,7 @@ def _handle_led_update(self, led_id: int, active: bool):
 - **Decoupling:** Managers don't depend on each other's APIs
 - **Testability:** Easy to mock events in unit tests
 - **Extensibility:** Add new features without modifying existing code
-- **Threading:** Events naturally cross thread boundaries
+- **Async-friendly:** Events naturally work with asyncio
 - **Debugging:** All communication flows through observable event system
 
 ## Troubleshooting
@@ -341,7 +422,7 @@ def _handle_led_update(self, led_id: int, active: bool):
 ### "Controller 'POT1' not found"
 - The controller name in your mapping doesn't match hardware
 - Check logs for `NewControllerMap` event showing available controllers
-- Verify Pin Proxy server is running and controllers are connected
+- Verify Sensei server is running and controllers are connected
 
 ### "Failed to initialize mapping"
 - Track, plugin, or parameter name doesn't exist in Sushi
@@ -353,23 +434,33 @@ def _handle_led_update(self, led_id: int, active: bool):
 - Verify `MappingsInitialized` event was emitted
 - Enable `DEBUG` logging to see event flow through observer
 
+### Asyncio-related issues
+- Make sure you're using `asyncio.run(main())` to start the app
+- All callbacks in the observer can be either sync or async
+- Use `await` when calling async methods like `app.initialize()` and `app.run()`
+
 ## Project Structure
 
 ```
-pedal-glue-app/
-├── main.py                  # Application entry point, orchestrates managers
-├── observer.py              # Pub/sub event system (subscribe, emit)
-├── sensei_client.py         # PinProxyClient - hardware interface manager
-├── sushi_client.py          # SushiClient - audio engine interface manager
-├── mappings.py              # MappingManager + user configuration
-├── presets.py               # Mapping class definitions
-├── dispatcher.py            # (Legacy) Original non-event-based dispatcher
-├── sensei_rpc.proto         # gRPC service definition
-├── sensei_rpc_pb2*.py       # Generated protobuf code (auto-generated)
-├── test_*.py                # Unit tests with observer mocking
-└── pyproject.toml           # Project dependencies
+guru/
+├── example.py               # Example usage with asyncio.run()
+├── example_mappings.py      # Example mapping configurations
+├── src/guru/                # Main package
+│   ├── __init__.py
+│   ├── app.py              # GlueApp - Application orchestrator with asyncio
+│   ├── observer.py         # Async pub/sub event system
+│   ├── sensei_client.py    # Async Sensei gRPC client
+│   ├── sushi_client.py     # SushiClient - audio engine interface
+│   ├── mappings.py         # MappingManager + mapping classes
+│   ├── presets.py          # Preset management
+│   ├── display_manager.py  # Display management utilities
+│   ├── sensei_rpc_pb2*.py  # Generated protobuf code
+│   └── sensei-grpc-api/    # gRPC API definitions
+├── tests/                  # Unit tests
+├── pyproject.toml          # Project dependencies and metadata
+└── setup.py                # Build configuration
 ```
 
 ## License
 
-[Add your license here]
+GNU Affero General Public License v3.0
