@@ -9,7 +9,7 @@ from elkpy import sushierrors
 from .presets import Preset
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('SUSHI')
 
 
 class MappingError(Exception):
@@ -36,7 +36,7 @@ class SushiClient:
         self.sushi_address = sushi_address
         self.controller = None
 
-    def connect(self) -> bool:
+    async def connect(self) -> bool:
         """Establish connection to Sushi."""
         logger.info(f"Connecting to Sushi at {self.sushi_address}")
         self.controller = sc.SushiController(self.sushi_address)
@@ -63,8 +63,8 @@ class SushiClient:
             cb=self._handle_param_update_notification
         )
 
-    def _handle_param_update_notification(self, notif) -> None:
-        observer.emit("SushiParameterUpdate", notif)
+    async def _handle_param_update_notification(self, notif) -> None:
+        await observer.emit("SushiParameterUpdate", notif)
 
     def _handle_sushi_plugin_event(self, event: dict) -> None:
         if not self.controller:
@@ -121,7 +121,7 @@ class SushiClient:
         preset.init(self.controller)
         logger.info(f"Initialized preset {preset}")
 
-    def _initialize_mappings(self, mappings: list) -> None:
+    async def _initialize_mappings(self, mappings: list) -> None:
         """
         Initialize all mappings by resolving track/plugin/parameter IDs.
 
@@ -137,7 +137,6 @@ class SushiClient:
 
         logger.info(f"Initializing {len(mappings)} mappings")
         for i, mapping in enumerate(mappings):
-            print(mapping)
             try:
                 mapping.init(self.controller)
                 logger.info(
@@ -152,7 +151,7 @@ class SushiClient:
             except Exception as e:
                 logger.error(f"Failed to initialize mapping {i + 1}: {e}")
                 raise MappingError("Initializing mappings failed")
-        observer.emit("MappingsInitialized")
+        await observer.emit("MappingsInitialized")
 
         logger.info("All mappings initialized successfully")
 

@@ -8,6 +8,7 @@ try:
 except ImportError:
     LUMA_AVAILABLE = False
 
+import asyncio
 from functools import cache
 from . import observer
 import time
@@ -70,19 +71,23 @@ if LUMA_AVAILABLE:
             observer.subscribe(event="DrawText", cb=self.draw)
             self.last_write = 0
 
-        def draw(
+        async def draw(
             self, text: str, position: tuple[int, int] = (0, 0), fill: str = "white"
         ) -> None:
             now = time.time()
             if now - self.last_write < 0.2:
                 return
             self.last_write = now
+            await asyncio.to_thread(self._draw_sync, text, position, fill)
+
+        def _draw_sync(self, text: str, position: tuple[int, int], fill: str) -> None:
+            """Runs GPIO operations in thread pool."""
             with canvas(self.device) as draw:
                 draw.text(position, text, fill)
 
-        def _handle_sushi_plugin_event(self, event) -> None:
+        async def _handle_sushi_plugin_event(self, event) -> None:
             name = self._get_param_name_by_event(event["plugin_id"], event["param_id"])
-            self.draw(f"{name}: {event['value']:.2f}")
+            return await self.draw(f"{name}: {event['value']:.2f}")
 
         @cache
         def _get_param_name_by_event(self, proc_id: int, param_id: int) -> str:
@@ -105,14 +110,14 @@ else:
                 )
                 self._sm = app.sushi_client.controller
 
-        def draw(
+        async def draw(
             self, text: str, position: tuple[int, int] = (0, 0), fill: str = "white"
         ) -> None:
-            observer.emit("PrintToMockDisplay", text)
+            await observer.emit("PrintToMockDisplay", text)
 
-        def _handle_sushi_plugin_event(self, event) -> None:
+        async def _handle_sushi_plugin_event(self, event) -> None:
             name = self._get_param_name_by_event(event["plugin_id"], event["param_id"])
-            self.draw(f"{name}: {event['value']:.2f}")
+            return await self.draw(f"{name}: {event['value']:.2f}")
 
         @cache
         def _get_param_name_by_event(self, proc_id: int, param_id: int) -> str:
