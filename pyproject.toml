@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=64", "wheel", "grpcio-tools>=1.50.0"]
+requires = ["setuptools>=64", "wheel", "grpcio-tools==1.62.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -9,7 +9,7 @@ description = "A library to help develop glue apps for the ElkAudio Stomp platfo
 authors = [{name = "Maxime Gendebien", email = "max@elk.audio"}]
 license = {file = "LICENSE"}
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = "==3.12.8"
 classifiers = [
       "Development Status :: 3 - Alpha",
       "Intended Audience :: Developers",
@@ -19,10 +19,10 @@ classifiers = [
       "Programming Language :: Python :: 3.13",
   ]
 
-dependencies = ["elkpy==2.0.0rc5", "grpcio>=1.50.0"]
+dependencies = ["elkpy==2.0.0rc5", "grpcio==1.62.2"]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0.0", "pytest-cov>=4.0.0", "pytest-asyncio>=0.21.0", "grpcio-tools>=1.50.0"]
+dev = ["pytest>=7.0.0", "pytest-cov>=4.0.0", "pytest-asyncio>=0.21.0"]
 
 [tool.pytest.ini_options]
 testpaths = ["."]
