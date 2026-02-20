@@ -135,6 +135,7 @@ class MappingManager:
         observer.subscribe(event="NewControllerMap", cb=self._update_controller_map)
         observer.subscribe(event="NewMappings", cb=self._setup_new_mappings)
         observer.subscribe(event="ModeSwitch", cb=self._switch_mode)
+        observer.subscribe(event="CycleMode", cb=self._cycle_mode)
         observer.subscribe(
             event="MappingsInitialized", cb=self._handle_mappings_initialized
         )
@@ -157,8 +158,16 @@ class MappingManager:
             logger.warning("There are no mappings specified.")
         await observer.emit(signal="InitMapping", mappings=map)
 
+    def _cycle_mode(self) -> None:
+        self._mode = (self._mode + 1 ) % len(self.mappings_by_controller_id)
+        logger.info(f"Cycled mode to mode {self._mode}")
+
     def _switch_mode(self, new_mode: int) -> None:
+        if new_mode > len(self.mappings_by_controller_id) - 1:
+            logger.warning(f"No mappings for new mode! Sticking to current mode {self._mode}.")
+            return
         self._mode = new_mode
+        logger.info(f"Switched mode to mode {self._mode}")
 
     def _update_controller_map(self, controller_map):
         self.controller_map = controller_map
