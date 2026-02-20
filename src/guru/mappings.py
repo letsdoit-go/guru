@@ -323,6 +323,7 @@ class MappingManager:
         """
 
         event_type = event.WhichOneof("event")
+
         if event_type == "toggle_ev":
             await self._detect_multi_presses(event)
             assert self._multipress_detection_task
