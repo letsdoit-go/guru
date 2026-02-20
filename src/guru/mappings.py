@@ -134,11 +134,12 @@ class MappingManager:
         observer.subscribe(event="UiEvent", cb=self._dispatch_ui_event)
         observer.subscribe(event="NewControllerMap", cb=self._update_controller_map)
         observer.subscribe(event="NewMappings", cb=self._setup_new_mappings)
+        observer.subscribe(event="ModeSwitch", cb=self._switch_mode)
         observer.subscribe(
             event="MappingsInitialized", cb=self._handle_mappings_initialized
         )
         self._mappings_initialized: bool = False
-        self.mappings_by_controller_id: dict[
+        self.mappings_by_controller_id: list[dict[
             int,
             PluginParameterMapping
             | TrackParameterMapping
@@ -146,14 +147,18 @@ class MappingManager:
             | BypassMapping
             | Control
             | ComboMapping,
-        ] = {}
+        ]] = []
         self.controller_map = None
+        self._mode = 0
 
     async def initialize_mappings(self, mappings: list) -> None:
-        map = [m for m in mappings if not isinstance(m, Control)]
+        map = [m for l in mappings for m in l if not isinstance(m, Control)]
         if map == []:
             logger.warning("There are no mappings specified.")
         await observer.emit(signal="InitMapping", mappings=map)
+
+    def _switch_mode(self, new_mode: int) -> None:
+        self._mode = new_mode
 
     def _update_controller_map(self, controller_map):
         self.controller_map = controller_map
@@ -186,10 +191,12 @@ class MappingManager:
         logger.info(f"Registering {len(mappings)} mappings")
 
         # Clearing existing mappings
-        self.mappings_by_controller_id = {}
+        self.mappings_by_controller_id = []
 
-        for mapping in mappings:
-            self._register_single_mapping(mapping)
+        for mode, map in enumerate(mappings):
+            self.mappings_by_controller_id[mode] = {}
+            for mapping in map:
+                self._register_single_mapping(mapping, self.mappings_by_controller_id[mode])
 
         logger.info("all mappings registered successfully")
         return True
@@ -202,6 +209,7 @@ class MappingManager:
         | Control
         | ComboMapping
         | BypassMapping,
+        mapping_dict_for_mode: dict
     ) -> None:
         assert self.controller_map is not None
         controller_id = self.controller_map.get(mapping.controller_name)
@@ -211,7 +219,7 @@ class MappingManager:
                 f"Available: {list(self.controller_map.keys())}"
             )
 
-        self.mappings_by_controller_id[controller_id] = mapping
+        self.mapping_dict_for_mode[controller_id] = mapping
 
         match mapping:
             case Control():
@@ -250,7 +258,7 @@ class MappingManager:
             event: event message from pin proxy
         """
         event_type = event.WhichOneof("event")
-        mapping = self.mappings_by_controller_id.get(event.controller_id)
+        mapping = self.mappings_by_controller_id[self._mode].get(event.controller_id)
         if not mapping:
             logger.debug(f"no mapping for controller id {event.controller_id}")
             return
