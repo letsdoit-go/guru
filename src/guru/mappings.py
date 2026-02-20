@@ -122,6 +122,10 @@ class ComboMapping:
     def __repr__(self) -> str:
         return f"ComboMapping - [{self.mappings}]"
 
+    def init(self, sc: SushiController) -> None:
+        for m in self.mappings:
+            m.init(sc)
+
 
 class MappingManager:
     """This class consumes UiEvents and maps them to Sushi controls or other internal settings."""
@@ -165,6 +169,8 @@ class MappingManager:
     def register_mappings(self, mappings: list[PluginParameterMapping]) -> bool:
         """
         Register mappings and resolve controller names to IDs.
+        Builds an internal dict of k, v where k is a controller ID gotten
+        from Sensei.
 
         Args:
             mappings: List of Mapping objects
