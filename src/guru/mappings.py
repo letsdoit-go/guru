@@ -203,7 +203,7 @@ class MappingManager:
         self.mappings_by_controller_id = []
 
         for mode, map in enumerate(mappings):
-            self.mappings_by_controller_id[mode] = {}
+            self.mappings_by_controller_id.append({})
             for mapping in map:
                 self._register_single_mapping(mapping, self.mappings_by_controller_id[mode])
 
@@ -228,7 +228,7 @@ class MappingManager:
                 f"Available: {list(self.controller_map.keys())}"
             )
 
-        self.mapping_dict_for_mode[controller_id] = mapping
+        mapping_dict_for_mode[controller_id] = mapping
 
         match mapping:
             case Control():
