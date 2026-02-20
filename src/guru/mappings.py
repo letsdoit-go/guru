@@ -6,6 +6,7 @@ The controller_name should match the name field from PotState or SwitchState
 returned by RefreshAllStates().
 """
 
+import asyncio
 from typing import Callable
 from elkpy.sushicontroller import SushiController
 from . import sensei_rpc_pb2
@@ -15,7 +16,12 @@ import logging
 logger = logging.getLogger('MAPPINGS')
 
 
+MULTIPRESS_DETECTION_WINDOW_S = 0.05
+
+
 class Control:
+    """ This mapping triggers an arbitrary callback. Useful for switching modes or emitting a specific signal"""
+
     def __init__(self, controller_name: str, cb: Callable | None):
         self.controller_name = controller_name
         self.callback = cb
@@ -23,7 +29,18 @@ class Control:
     def init(self, sc) -> None: ...
 
 
+class MultiSwitch:
+    """ Assigns a mapping to a combination of switches when they are pressed at the same time"""
+    def __init__(self, controller_names: list, mapping) -> None:
+        self.controller_names = controller_names
+        self.mapping = mapping
+
+    def init(self, sc) -> None:
+        self.mapping.init(sc)
+
+
 class TrackParameterMapping:
+    """Mapping to a track parameter (gain, pan, ...)"""
     def __init__(
         self,
         track_name: str,
@@ -47,6 +64,7 @@ class TrackParameterMapping:
 
 
 class PluginParameterMapping:
+    """Mapping to a plugin parameter"""
     def __init__(
         self,
         track_name: str,
@@ -73,6 +91,7 @@ class PluginParameterMapping:
 
 
 class SwitchMapping(PluginParameterMapping):
+    """Mapping for those special cases where a plugin parameter must be switched to a specific value""" 
     def __init__(
         self,
         track_name: str,
@@ -109,7 +128,8 @@ class BypassMapping(PluginParameterMapping):
 
 
 class ComboMapping:
-    """This holds a list of Mappings"""
+    """This holds a list of Mappings. Useful when you need to trigger several mappings from the same controller event
+    """
 
     def __init__(
         self,
@@ -149,11 +169,14 @@ class MappingManager:
             | Control
             | ComboMapping,
         ]] = []
-        self.controller_map = None
+        self.controller_map: dict | None = None
         self._mode = 0
+        self._pressed: set[str] = set()
+        self._multipress_detection_task: asyncio.Task | None = None
+        self._multipress_mappings: dict[frozenset[str], object] = {}
 
     async def initialize_mappings(self, mappings: list) -> None:
-        map = [m for l in mappings for m in l if not isinstance(m, Control)]
+        map = [m for lst in mappings for m in lst if not isinstance(m, Control)]
         if map == []:
             logger.warning("There are no mappings specified.")
         await observer.emit(signal="InitMapping", mappings=map)
@@ -171,7 +194,7 @@ class MappingManager:
 
     def _update_controller_map(self, controller_map):
         self.controller_map = controller_map
-        logger.debug("Updated contoller map")
+        logger.debug("Updated controller map")
 
     def _handle_mappings_initialized(self):
         self._mappings_initialized = True
@@ -217,20 +240,29 @@ class MappingManager:
         | TrackParameterMapping
         | Control
         | ComboMapping
-        | BypassMapping,
+        | BypassMapping | MultiSwitch,
         mapping_dict_for_mode: dict
     ) -> None:
         assert self.controller_map is not None
-        controller_id = self.controller_map.get(mapping.controller_name)
-        if controller_id is None:
-            raise ValueError(
-                f"Controller '{mapping.controller_name}' not found in available controllers. "
-                f"Available: {list(self.controller_map.keys())}"
-            )
-
-        mapping_dict_for_mode[controller_id] = mapping
 
         match mapping:
+            case MultiSwitch():
+                self._multipress_mappings[frozenset(set(mapping.controller_names))] = mapping.mapping
+            case _:
+                controller_id = self.controller_map.get(mapping.controller_name)
+                if controller_id is None:
+                    raise ValueError(
+                        f"Controller '{mapping.controller_name}' not found in available controllers. "
+                        f"Available: {list(self.controller_map.keys())}"
+                    )
+
+                mapping_dict_for_mode[controller_id] = mapping
+
+        match mapping:
+            case MultiSwitch():
+                logger.info(
+                    f"Registered: controllers {', '.join(name for name in mapping.controller_names)} -> mapping = {mapping.mapping}"
+                )
             case Control():
                 logger.info(
                     f"Registered: controller '{mapping.controller_name}' -> control -> cb = {mapping.callback}"
@@ -259,15 +291,46 @@ class MappingManager:
             case _:
                 raise
 
+    async def _detect_multi_presses(self, event: sensei_rpc_pb2.Event) -> None:
+        assert self.controller_map
+
+        if event.toggle_ev.value == 1:
+            self._pressed.add(next(name for name, id in self.controller_map.items() if id == event.controller_id))
+            if self._multipress_detection_task:
+                self._multipress_detection_task.cancel()
+            self._multipress_detection_task = asyncio.create_task(self._multipress_detection_expired())
+        else:
+            self._pressed.discard(next(name for name, id in self.controller_map.items() if id == event.controller_id))
+
+    async def _multipress_detection_expired(self) -> None:
+        try:
+            await asyncio.sleep(MULTIPRESS_DETECTION_WINDOW_S)
+        except asyncio.CancelledError:
+            return
+
+    def _get_multi_switch_mapping(self, pressed: frozenset, event):
+        if len(pressed) == 1:
+            return self.mappings_by_controller_id[self._mode].get(event.controller_id)
+        elif len(pressed) > 1:
+            return self._multipress_mappings.get(pressed)
+
     async def _dispatch_ui_event(self, event: sensei_rpc_pb2.Event) -> None:
         """
-        process an incoming event and route it to the appropriate sushi parameter.
+        Process an incoming event and route it to the appropriate sushi parameter.
 
-        args:
-            event: event message from pin proxy
+        Args:
+            event: event message from Sensei
         """
+
         event_type = event.WhichOneof("event")
-        mapping = self.mappings_by_controller_id[self._mode].get(event.controller_id)
+        if event_type == "toggle_ev":
+            await self._detect_multi_presses(event)
+            assert self._multipress_detection_task
+            await self._multipress_detection_task
+            mapping = self._get_multi_switch_mapping(frozenset(self._pressed), event)
+        else:
+            mapping = self.mappings_by_controller_id[self._mode].get(event.controller_id)
+
         if not mapping:
             logger.debug(f"no mapping for controller id {event.controller_id}")
             return
@@ -298,7 +361,6 @@ class MappingManager:
     async def _handle_analog_event(self, event: sensei_rpc_pb2.Event, mapping) -> None:
         """handle analog controller events (pots, faders)."""
         await self._create_sushi_event(event, mapping, event.analog_ev.value)
-
 
     async def _handle_toggle_event(self, event: sensei_rpc_pb2.Event, mapping) -> None:
         """handle toggle/switch events."""
@@ -426,31 +488,3 @@ class MappingManager:
     async def _emit_sushi_bypass_event(self, plugin_id: int) -> None:
         await observer.emit("PluginBypassEvent", {"plugin_id": plugin_id})
 
-
-# example mappings - replace with your actual configuration
-# mappings = []
-MAPPINGS = [
-    # Example: Map a pot to a plugin parameter
-    Control(controller_name="SW2", cb=None),
-    BypassMapping(plugin_name="bitcrusher", controller_name="SW1"),
-    ComboMapping(
-        mappings=[
-            PluginParameterMapping(
-                track_name="TRACK",
-                plugin_name="chorus",
-                parameter_name="amount",
-                preprocessor=lambda x: 0.2 + x * 0.6,
-            ),
-            PluginParameterMapping(
-                track_name="TRACK", plugin_name="bitcrusher", parameter_name="sr_ratio"
-            ),
-            PluginParameterMapping(
-                track_name="TRACK",
-                plugin_name="tremolo",
-                parameter_name="rate",
-                preprocessor=lambda x: 0.1 + x * 0.8,
-            ),
-        ],
-        controller_name="POT1",
-    ),
-]

@@ -95,17 +95,28 @@ class SenseiClient:
         if not self.stub:
             raise RuntimeError("Not connected to server. Call connect() first.")
         controller_map = {}
+
         response = await self.stub.GetControllerMap(sensei_rpc_pb2.GenericVoidValue())
 
-        # Map pot names to IDs
         for pot in response.pots:
             controller_map[pot.name] = pot.id
             logger.debug(f"Pot: {pot.name} -> ID {pot.id}")
 
-        # Map switch names to IDs
         for switch in response.switches:
             controller_map[switch.name] = switch.id
             logger.debug(f"Switch: {switch.name} -> ID {switch.id}")
+
+        for encoder in response.encoders:
+            controller_map[encoder.name] = encoder.id
+            logger.debug(f"Endoder: {encoder.name} -> ID {encoder.id}")
+
+        for rotary in response.rotaries:
+            controller_map[rotary.name] = rotary.id
+            logger.debug(f"Rotary: {rotary.name} -> ID {rotary.id}")
+
+        for led in response.leds:
+            controller_map[led.name] = led.id
+            logger.debug(f"Led: {led.name} -> ID {led.id}")
 
         logger.info(f"Discovered {len(controller_map)} controllers")
         await observer.emit("NewControllerMap", controller_map)
