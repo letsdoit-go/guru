@@ -32,9 +32,10 @@ class Preset:
     def init(self, sc: SushiController) -> None:
         for state in self.initial_state:
             proc_id = sc.audio_graph.get_processor_id(state["processor"])
-            for param_name, value in state["parameters"].items():
-                param_id = sc.parameters.get_parameter_id(proc_id, param_name)
-                self.parameter_states.append((proc_id, param_id, value))
+            if "parameters" in state.keys():
+                for param_name, value in state["parameters"].items():
+                    param_id = sc.parameters.get_parameter_id(proc_id, param_name)
+                    self.parameter_states.append((proc_id, param_id, value))
             if "bypassed" in state.keys():
                 self.bypass_states.append((proc_id, state["bypassed"]))
 
@@ -65,9 +66,14 @@ class PresetManager:
         self._last_preset_loading = time.time()
         observer.subscribe("LoadPreset", self._handle_load_preset)
         observer.subscribe("LoadNextPreset", self.load_next_preset)
+        observer.subscribe("LoadPresetByName", self.load_preset_by_name)
 
-    def _handle_load_preset(self, preset: int) -> None:
-        return self.load_preset(preset)
+    async def _handle_load_preset(self, preset: int) -> bool:
+        return await self.load_preset(preset)
+
+    def add_presets(self, presets: list[Preset]) -> None:
+        for p in presets:
+            self.add_preset(p)
 
     def add_preset(self, preset: Preset) -> None:
         """
@@ -107,6 +113,11 @@ class PresetManager:
         else:
             self._logger.warning(f"Invalid preset index: {index}")
             return False
+
+    async def load_preset_by_name(self, name: str) -> bool:
+        return await self.load_preset(
+            self.preset_list.index(next(preset for preset in self.preset_list if preset.name == name))
+        )
 
     async def load_preset(self, index: int) -> bool:
         """
