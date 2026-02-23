@@ -27,14 +27,8 @@ class Preset:
     ) -> None:
         self.name = name
         self.initial_state = initial_state if initial_state else []
-        self.mappings = mappings if mappings else []
         self.parameter_states: list = []
         self.bypass_states: list = []
-
-    def add_mapping(
-        self, mapping: TrackParameterMapping | PluginParameterMapping
-    ) -> None:
-        self.mappings.append(mapping)
 
     def init(self, sc: SushiController) -> None:
         for state in self.initial_state:
@@ -69,9 +63,6 @@ class PresetManager:
 
         self.preset_list: list[Preset] = []
         self.current_preset_index: int = 0
-        self.current_mappings: dict[
-            str, TrackParameterMapping | PluginParameterMapping
-        ] = {}
         self._last_preset_loading = time.time()
         observer.subscribe("LoadPreset", self._handle_load_preset)
         observer.subscribe("LoadNextPreset", self.load_next_preset)
@@ -141,9 +132,6 @@ class PresetManager:
 
             # Set plugin bypass states
             await self._apply_initial_state(preset)
-
-            # Update parameter mappings
-            await self._update_parameter_mappings(preset)
 
             # Update current preset index
             old_index = self.current_preset_index
@@ -237,30 +225,17 @@ class PresetManager:
             "current_preset_index": self.current_preset_index,
             "current_preset_name": self.get_current_preset_name(),
             "preset_names": self.get_preset_names(),
-            "active_mappings": len(self.current_mappings),
             "current_preset_details": {
                 "active_plugins": current_preset.active_plugins
                 if current_preset
                 else [],
                 "inactive_plugins": current_preset.inactive_plugins
                 if current_preset
-                else [],
-                "mapping_count": len(current_preset.mappings) if current_preset else 0,
+                else []
             }
             if current_preset
             else None,
         }
-
-    def _handle_switch_event(self, event) -> None:
-        """
-        Handle switch press events for preset switching.
-
-        Args:
-            event: Switch pressed event
-        """
-        # Only respond to preset switch presses (not releases)
-        if event.switch_name == "SW1" and event.pressed:
-            self.load_next_preset()
 
     async def _apply_initial_state(self, preset: Preset) -> None:
         """
@@ -274,30 +249,8 @@ class PresetManager:
         for state in preset.parameter_states:
             await observer.emit("SetInitialStateOnPlugin", state)
 
-    async def _update_parameter_mappings(self, preset: Preset) -> None:
-        """
-        Update parameter mappings for the given preset.
-
-        Args:
-            preset: Preset to update mappings for
-        """
-        await observer.emit("NewMappings", preset.mappings)
-
-    def get_mapping_for_controller(self, controller_name: str) -> None:
-        """
-        Get the parameter mapping for a specific controller.
-
-        Args:
-            controller_name: Name of the controller (e.g., "POT1")
-
-        Returns:
-            Mapping instance if found, None otherwise
-        """
-        return self.current_mappings.get(controller_name)
-
     def clear_presets(self) -> None:
         """Clear all presets from the manager."""
         self.preset_list.clear()
         self.current_preset_index = 0
-        self.current_mappings.clear()
         self._logger.info("Cleared all presets")
