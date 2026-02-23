@@ -6,7 +6,6 @@ including parameter mappings and plugin bypass states.
 """
 
 from typing import Optional, Any
-import asyncio
 import logging
 import time
 
@@ -23,11 +22,13 @@ class Preset:
         self,
         name: str,
         initial_state: list | None = None,
+        mode: int | None = None
     ) -> None:
         self.name = name
         self.initial_state = initial_state if initial_state else []
         self.parameter_states: list = []
         self.bypass_states: list = []
+        self.mode = mode
 
     def init(self, sc: SushiController) -> None:
         for state in self.initial_state:
