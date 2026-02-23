@@ -15,6 +15,8 @@ from . import observer
 
 logger = logging.getLogger('SENSEI')
 
+IDLING_TIMEOUT_S = 3
+
 
 class SenseiClient:
     """Client for connecting to the Sensei gRPC service."""
@@ -30,6 +32,7 @@ class SenseiClient:
         self.channel = None
         self.stub = None
         self._streaming = False
+        self._timeout_task: asyncio.Task | None = None
 
         observer.subscribe("ToggleLedRequest", self._update_led)
         observer.subscribe("PrintToMockDisplay", self._print_to_mock_display)
@@ -50,6 +53,13 @@ class SenseiClient:
             self.channel = None
             self.stub = None
 
+    async def _is_idling(self) -> None:
+        try:
+            await asyncio.sleep(IDLING_TIMEOUT_S)
+            await observer.emit("Idle")
+        except asyncio.CancelledError:
+            return
+
     async def stream_events(self) -> None:
         """
         Main TaskGroup task - streams events and emits via observer.
@@ -65,9 +75,14 @@ class SenseiClient:
                 if not self._streaming:
                     logger.info("Event stream stopping (streaming flag is False)")
                     break
-
                 # Emit event to observer
                 await observer.emit("UiEvent", event)
+                
+                # Reset the idling timeout
+                if self._timeout_task:
+                    self._timeout_task.cancel()
+                self._timeout_task = asyncio.create_task(self._is_idling())
+
 
         except Exception as e:
             # Check if it's a gRPC error
