@@ -13,7 +13,7 @@ from . import sensei_rpc_pb2
 from . import observer
 import logging
 
-logger = logging.getLogger('MAPPINGS')
+logger = logging.getLogger("MAPPINGS")
 
 
 MULTIPRESS_DETECTION_WINDOW_S = 0.05
@@ -133,7 +133,9 @@ class ComboMapping:
 
     def __init__(
         self,
-        mappings: list[TrackParameterMapping | PluginParameterMapping | SwitchMapping],
+        mappings: list[
+            TrackParameterMapping | PluginParameterMapping | SwitchMapping | Control
+        ],
         controller_name: str,
     ) -> None:
         self.mappings = mappings
@@ -182,12 +184,14 @@ class MappingManager:
         await observer.emit(signal="InitMapping", mappings=map)
 
     def _cycle_mode(self) -> None:
-        self._mode = (self._mode + 1 ) % len(self.mappings_by_controller_id)
+        self._mode = (self._mode + 1) % len(self.mappings_by_controller_id)
         logger.info(f"Cycled mode to mode {self._mode}")
 
     def _switch_mode(self, new_mode: int) -> None:
         if new_mode > len(self.mappings_by_controller_id) - 1:
-            logger.warning(f"No mappings for new mode! Sticking to current mode {self._mode}.")
+            logger.warning(
+                f"No mappings for new mode! Sticking to current mode {self._mode}."
+            )
             return
         self._mode = new_mode
         logger.info(f"Switched mode to mode {self._mode}")
@@ -228,7 +232,9 @@ class MappingManager:
         for mode, map in enumerate(mappings):
             self.mappings_by_controller_id.append({})
             for mapping in map:
-                self._register_single_mapping(mapping, self.mappings_by_controller_id[mode])
+                self._register_single_mapping(
+                    mapping, self.mappings_by_controller_id[mode]
+                )
 
         logger.info("all mappings registered successfully")
         return True
@@ -345,7 +351,13 @@ class MappingManager:
                 return
             case ComboMapping():
                 for m in mapping.mappings:
-                    await self._handle_analog_event(event, m)
+                    match m:
+                        case Control():
+                            await self._handle_control_event(m, event)
+                        case BypassMapping():
+                            await self._handle_bypass_event(m, event)
+                        case _:
+                            await self._handle_analog_event(event, m)
                 return
             case _:
                 if event_type == "analog_ev":
@@ -368,7 +380,9 @@ class MappingManager:
         # determine value based on switch state
         if isinstance(mapping, SwitchMapping):
             value = (
-                mapping.pressed_value if event.toggle_ev.value else mapping.released_value
+                mapping.pressed_value
+                if event.toggle_ev.value
+                else mapping.released_value
             )
         else:
             # for regular mappings, treat as binary 1.0/0.0
@@ -376,20 +390,14 @@ class MappingManager:
 
         await self._create_sushi_event(event, mapping, value)
 
-        logger.debug(
-            f"toggle event: controller={event.controller_id}, "
-            f"pressed={value}"
-        )
+        logger.debug(f"toggle event: controller={event.controller_id}, pressed={value}")
 
     async def _create_sushi_event(self, event, mapping, value) -> None:
         # apply preprocessor if defined
         if mapping.preprocessor:
             value = mapping.preprocessor(value)
 
-        logger.debug(
-            f"analog event: controller={event.controller_id}, "
-            f"value={value}"
-        )
+        logger.debug(f"analog event: controller={event.controller_id}, value={value}")
 
         if isinstance(mapping, PluginParameterMapping):
             await self._emit_sushi_plugin_event(
@@ -404,7 +412,10 @@ class MappingManager:
                 param_id=mapping.param_id,
                 value=value,
             )
-    async def _handle_relative_event(self, event: sensei_rpc_pb2.Event, mapping) -> None:
+
+    async def _handle_relative_event(
+        self, event: sensei_rpc_pb2.Event, mapping
+    ) -> None:
         """
         handle relative events (encoders).
 
@@ -446,10 +457,7 @@ class MappingManager:
             value=value,
         )
 
-        logger.debug(
-            f"Range event: controller={event.controller_id}, "
-            f"Range={value}"
-        )
+        logger.debug(f"Range event: controller={event.controller_id}, Range={value}")
 
     async def _handle_control_event(self, mapping, event) -> None:
         logger.debug(f"Received control event: {event} -> cb: {mapping.callback}")

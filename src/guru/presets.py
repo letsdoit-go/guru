@@ -65,7 +65,7 @@ class PresetManager:
             event_bus: Event bus for listening to preset switch events
             sushi_controller: Sushi controller for audio graph manipulation
         """
-        self._logger = logging.getLogger('PRESETS')
+        self._logger = logging.getLogger("PRESETS")
 
         self.preset_list: list[Preset] = []
         self.current_preset_index: int = 0
@@ -76,8 +76,8 @@ class PresetManager:
         observer.subscribe("LoadPreset", self._handle_load_preset)
         observer.subscribe("LoadNextPreset", self.load_next_preset)
 
-    def _handle_load_preset(self, preset: int) -> None:
-        return self.load_preset(preset)
+    async def _handle_load_preset(self, preset: int) -> None:
+        await self.load_preset(preset)
 
     def add_preset(self, preset: Preset) -> None:
         """
