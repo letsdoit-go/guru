@@ -155,7 +155,6 @@ class MappingManager:
     def __init__(self) -> None:
         observer.subscribe(event="UiEvent", cb=self._dispatch_ui_event)
         observer.subscribe(event="NewControllerMap", cb=self._update_controller_map)
-        observer.subscribe(event="NewMappings", cb=self._setup_new_mappings)
         observer.subscribe(event="ModeSwitch", cb=self._switch_mode)
         observer.subscribe(event="CycleMode", cb=self._cycle_mode)
         observer.subscribe(
@@ -202,10 +201,6 @@ class MappingManager:
 
     def _handle_mappings_initialized(self):
         self._mappings_initialized = True
-
-    async def _setup_new_mappings(self, mappings: list) -> None:
-        self.register_mappings(mappings)
-        await self.initialize_mappings(mappings)
 
     def register_mappings(self, mappings: list[PluginParameterMapping]) -> bool:
         """

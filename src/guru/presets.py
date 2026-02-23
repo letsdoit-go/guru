@@ -23,7 +23,6 @@ class Preset:
         self,
         name: str,
         initial_state: list | None = None,
-        mappings: list | None = None,
     ) -> None:
         self.name = name
         self.initial_state = initial_state if initial_state else []
