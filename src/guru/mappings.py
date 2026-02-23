@@ -287,8 +287,6 @@ class MappingManager:
                 raise
 
     async def _detect_multi_presses(self, event: sensei_rpc_pb2.Event) -> None:
-        assert self.controller_map
-
         if event.toggle_ev.value == 1:
             self._pressed.add(next(name for name, id in self.controller_map.items() if id == event.controller_id))
             if self._multipress_detection_task:
@@ -321,8 +319,8 @@ class MappingManager:
 
         if event_type == "toggle_ev":
             await self._detect_multi_presses(event)
-            assert self._multipress_detection_task
-            await self._multipress_detection_task
+            if self._multipress_detection_task:
+                await self._multipress_detection_task
             mapping = self._get_multi_switch_mapping(frozenset(self._pressed), event)
         else:
             mapping = self.mappings_by_controller_id[self._mode].get(event.controller_id)
