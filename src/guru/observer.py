@@ -18,6 +18,7 @@ def subscribe(event: str, cb: Callable | Coroutine) -> None:
 
 async def emit(signal: str, *args, **kwargs) -> None:
     if not events.get(signal):
+        logger.debug(f"Emitting signal with no listeners: {signal}")
         return
     for cb in list(events.get(signal, [])):
         try:

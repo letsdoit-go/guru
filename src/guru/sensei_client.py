@@ -83,7 +83,6 @@ class SenseiClient:
                     self._timeout_task.cancel()
                 self._timeout_task = asyncio.create_task(self._is_idling())
 
-
         except Exception as e:
             # Check if it's a gRPC error
             if hasattr(e, '__class__') and 'AioRpcError' in e.__class__.__name__:
