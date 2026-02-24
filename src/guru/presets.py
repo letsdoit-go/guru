@@ -2,7 +2,7 @@
 Preset management system for the topo-pedal controller.
 
 This module handles loading, switching, and managing audio effect presets,
-including parameter mappings and plugin bypass states.
+including plugin bypass states.
 """
 
 from typing import Optional, Any
@@ -12,7 +12,6 @@ import time
 from elkpy.sushicontroller import SushiController
 
 from . import observer
-from .mappings import TrackParameterMapping, PluginParameterMapping
 
 PRESET_LOADING_MIN_WAIT_S = 2
 
@@ -49,7 +48,7 @@ class PresetManager:
     Manages audio effect presets and handles dynamic switching.
 
     Coordinates with the Sushi audio host to apply preset configurations
-    including plugin bypass states and parameter mappings.
+    including plugin bypass states.
     """
 
     def __init__(self) -> None:
