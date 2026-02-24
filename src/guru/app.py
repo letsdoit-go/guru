@@ -13,6 +13,7 @@ import sys
 from .sensei_client import SenseiClient
 from .sushi_client import MappingError, SushiClient
 from .mappings import MappingManager
+from .presets import PresetManager
 
 DEFAULT_SUSHI_ADDRESS = "localhost:51051"
 if sys.platform == "win32":
@@ -71,6 +72,7 @@ class GlueApp:
         self.sensei_client = SenseiClient(self.sensei_address)
         self.mapping_manager = MappingManager()
         self.sushi_client = SushiClient(self.sushi_address)
+        self.preset_manager = PresetManager()
 
     def _setup_signal_handlers(self):
         """Setup asyncio-compatible signal handlers."""
