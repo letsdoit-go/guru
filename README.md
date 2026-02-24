@@ -68,6 +68,7 @@ Central hub that routes hardware events to Sushi parameters based on user-define
 - `UiEvent` - Processes hardware events and routes to Sushi
 - `NewControllerMap` - Updates internal controller name→ID mapping
 - `MappingsInitialized` - Confirms Sushi initialization completed
+- `ModeSwitch` - switches mappings around according to current mode
 
 **Events Emitted:**
 - `InitMapping` - Requests Sushi to initialize mappings
@@ -196,7 +197,7 @@ Create your mappings using the mapping classes from `guru.mappings`:
 ```python
 from guru.mappings import PluginParameterMapping, TrackParameterMapping, SwitchMapping, ComboMapping
 
-MAPPINGS = [
+MAPPINGS = [[
     # Map a pot to a plugin parameter
     PluginParameterMapping(
         track_name="guitar",
@@ -235,7 +236,7 @@ MAPPINGS = [
             )
         ]
     )
-]
+]]
 ```
 
 Be aware that track, plugin and parameter names *MUST* match their counterparts in Sushi's configuration file.
@@ -262,6 +263,23 @@ Preprocessors are straight-forward Python lambdas. They default to None.
 #### Combo mappings
 `ComboMapping` is an easy way to assign several mappings to the same controller. Actually it is the only way!
 
+#### Modes
+You might have noticed that `MAPPINGS` was declared as a **list of list**. Indeed, you can declare as many lists 
+of mappings as you want.
+
+This opens the possibility to implement modal behaviours in your app, where controllers fill a different 
+purpose according to what "mode" the app is in.
+
+*Modes* are identified by an int (default: 0) and mode switches are done by emit one of the following signals:
+- `ModeSwitch` with the requested mode id**: `observer.emit("ModeSwitch", 2)` for instance;
+- `CycleMode` with no args. This will cause the mapping_manager do switch to the next mode, or loop around to mode 0.
+
+Typically, you would want to declare a `Control` mapping to execute the switch. But **DON'T FORGET** to copy that same kind of mapping to the other 
+lists, otherwise you might get stuck in the new mode...
+
+Each list of mappings in `MAPPINGS` holds mappings for the corresponding mode: `MAPPINGS[0]`= mappings for mode 0, etc...
+
+Out of the box, only `mapping_manager` subscribes to `ModeSwitch` and `CycleMode`.
 
 ## Usage
 

@@ -123,7 +123,8 @@ class SushiClient:
 
     async def _initialize_mappings(self, mappings: list) -> None:
         """
-        Initialize all mappings by resolving track/plugin/parameter IDs.
+        Initialize all mappings by resolving track/plugin/parameter IDs. To point is to have 
+        those IDs ready and not have to query Sushi for them every time.
 
         Args:
             mappings: List of Mapping objects to initialize

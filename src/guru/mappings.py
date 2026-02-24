@@ -122,6 +122,10 @@ class ComboMapping:
     def __repr__(self) -> str:
         return f"ComboMapping - [{self.mappings}]"
 
+    def init(self, sc: SushiController) -> None:
+        for m in self.mappings:
+            m.init(sc)
+
 
 class MappingManager:
     """This class consumes UiEvents and maps them to Sushi controls or other internal settings."""
@@ -130,11 +134,13 @@ class MappingManager:
         observer.subscribe(event="UiEvent", cb=self._dispatch_ui_event)
         observer.subscribe(event="NewControllerMap", cb=self._update_controller_map)
         observer.subscribe(event="NewMappings", cb=self._setup_new_mappings)
+        observer.subscribe(event="ModeSwitch", cb=self._switch_mode)
+        observer.subscribe(event="CycleMode", cb=self._cycle_mode)
         observer.subscribe(
             event="MappingsInitialized", cb=self._handle_mappings_initialized
         )
         self._mappings_initialized: bool = False
-        self.mappings_by_controller_id: dict[
+        self.mappings_by_controller_id: list[dict[
             int,
             PluginParameterMapping
             | TrackParameterMapping
@@ -142,14 +148,26 @@ class MappingManager:
             | BypassMapping
             | Control
             | ComboMapping,
-        ] = {}
+        ]] = []
         self.controller_map = None
+        self._mode = 0
 
     async def initialize_mappings(self, mappings: list) -> None:
-        map = [m for m in mappings if not isinstance(m, Control)]
+        map = [m for l in mappings for m in l if not isinstance(m, Control)]
         if map == []:
             logger.warning("There are no mappings specified.")
         await observer.emit(signal="InitMapping", mappings=map)
+
+    def _cycle_mode(self) -> None:
+        self._mode = (self._mode + 1 ) % len(self.mappings_by_controller_id)
+        logger.info(f"Cycled mode to mode {self._mode}")
+
+    def _switch_mode(self, new_mode: int) -> None:
+        if new_mode > len(self.mappings_by_controller_id) - 1:
+            logger.warning(f"No mappings for new mode! Sticking to current mode {self._mode}.")
+            return
+        self._mode = new_mode
+        logger.info(f"Switched mode to mode {self._mode}")
 
     def _update_controller_map(self, controller_map):
         self.controller_map = controller_map
@@ -165,6 +183,8 @@ class MappingManager:
     def register_mappings(self, mappings: list[PluginParameterMapping]) -> bool:
         """
         Register mappings and resolve controller names to IDs.
+        Builds an internal dict of k, v where k is a controller ID gotten
+        from Sensei.
 
         Args:
             mappings: List of Mapping objects
@@ -180,10 +200,12 @@ class MappingManager:
         logger.info(f"Registering {len(mappings)} mappings")
 
         # Clearing existing mappings
-        self.mappings_by_controller_id = {}
+        self.mappings_by_controller_id = []
 
-        for mapping in mappings:
-            self._register_single_mapping(mapping)
+        for mode, map in enumerate(mappings):
+            self.mappings_by_controller_id.append({})
+            for mapping in map:
+                self._register_single_mapping(mapping, self.mappings_by_controller_id[mode])
 
         logger.info("all mappings registered successfully")
         return True
@@ -196,6 +218,7 @@ class MappingManager:
         | Control
         | ComboMapping
         | BypassMapping,
+        mapping_dict_for_mode: dict
     ) -> None:
         assert self.controller_map is not None
         controller_id = self.controller_map.get(mapping.controller_name)
@@ -205,7 +228,7 @@ class MappingManager:
                 f"Available: {list(self.controller_map.keys())}"
             )
 
-        self.mappings_by_controller_id[controller_id] = mapping
+        mapping_dict_for_mode[controller_id] = mapping
 
         match mapping:
             case Control():
@@ -244,7 +267,7 @@ class MappingManager:
             event: event message from pin proxy
         """
         event_type = event.WhichOneof("event")
-        mapping = self.mappings_by_controller_id.get(event.controller_id)
+        mapping = self.mappings_by_controller_id[self._mode].get(event.controller_id)
         if not mapping:
             logger.debug(f"no mapping for controller id {event.controller_id}")
             return
