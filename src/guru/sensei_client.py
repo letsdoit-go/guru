@@ -6,7 +6,7 @@ import asyncio
 import grpc.aio
 import logging
 from typing import AsyncIterator
-
+from . import grpc_gen
 from . import sensei_rpc_pb2
 from . import sensei_rpc_pb2_grpc
 
