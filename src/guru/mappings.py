@@ -9,7 +9,6 @@ returned by RefreshAllStates().
 import asyncio
 from typing import Callable
 from elkpy.sushicontroller import SushiController
-from . import sensei_rpc_pb2
 from . import observer
 import logging
 
@@ -272,7 +271,7 @@ class MappingManager:
                     f"{getattr(mapping, 'track_name', '')}/{getattr(mapping, 'plugin_name', '-')}/{getattr(mapping, 'parameter_name', 'BYPASS')}"
                 )
 
-    def _get_value_from_event(self, event: sensei_rpc_pb2.Event) -> int | float | None:
+    def _get_value_from_event(self, event) -> int | float | None:
         event_type = event.WhichOneof("event")
         match event_type:
             case "analog_ev":
@@ -286,7 +285,7 @@ class MappingManager:
             case _:
                 raise
 
-    async def _detect_multi_presses(self, event: sensei_rpc_pb2.Event) -> None:
+    async def _detect_multi_presses(self, event) -> None:
         if event.toggle_ev.value == 1:
             self._pressed.add(next(name for name, id in self.controller_map.items() if id == event.controller_id))
             if self._multipress_detection_task:
@@ -307,7 +306,7 @@ class MappingManager:
         elif len(pressed) > 1:
             return self._multipress_mappings.get(pressed)
 
-    async def _dispatch_ui_event(self, event: sensei_rpc_pb2.Event) -> None:
+    async def _dispatch_ui_event(self, event) -> None:
         """
         Process an incoming event and route it to the appropriate sushi parameter.
 
@@ -352,11 +351,11 @@ class MappingManager:
                 else:
                     logger.warning(f"unknown event type: {event_type}")
 
-    async def _handle_analog_event(self, event: sensei_rpc_pb2.Event, mapping) -> None:
+    async def _handle_analog_event(self, event, mapping) -> None:
         """handle analog controller events (pots, faders)."""
         await self._create_sushi_event(event, mapping, event.analog_ev.value)
 
-    async def _handle_toggle_event(self, event: sensei_rpc_pb2.Event, mapping) -> None:
+    async def _handle_toggle_event(self, event, mapping) -> None:
         """handle toggle/switch events."""
         # determine value based on switch state
         if isinstance(mapping, SwitchMapping):
@@ -397,7 +396,7 @@ class MappingManager:
                 param_id=mapping.param_id,
                 value=value,
             )
-    async def _handle_relative_event(self, event: sensei_rpc_pb2.Event, mapping) -> None:
+    async def _handle_relative_event(self, event, mapping) -> None:
         """
         handle relative events (encoders).
 
@@ -419,7 +418,7 @@ class MappingManager:
         # new_value = clamp(new_value, param_min, param_max)
         # self.sushi_client.set_parameter_value(...)
 
-    async def _handle_range_event(self, event: sensei_rpc_pb2.Event, mapping) -> None:
+    async def _handle_range_event(self, event, mapping) -> None:
         """
         handle range events (discrete position controllers).
 
