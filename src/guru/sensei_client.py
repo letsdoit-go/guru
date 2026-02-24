@@ -5,11 +5,10 @@ gRPC client for connecting to SenseiService and subscribing to hardware events.
 import asyncio
 import grpc.aio
 import logging
+from pathlib import Path
 from typing import AsyncIterator
-from . import grpc_gen
-from . import sensei_rpc_pb2
-from . import sensei_rpc_pb2_grpc
 
+from . import grpc_gen
 from . import observer
 
 
@@ -17,11 +16,13 @@ logger = logging.getLogger('SENSEI')
 
 IDLING_TIMEOUT_S = 3
 
+sensei_proto = Path(__file__).parent / "sensei_rpc.proto"
+
 
 class SenseiClient:
     """Client for connecting to the Sensei gRPC service."""
 
-    def __init__(self, server_address: str = "localhost:50051"):
+    def __init__(self, server_address: str = "localhost:50051", sensei_proto: Path = sensei_proto):
         """
         Initialize the Sensei client.
 
@@ -34,6 +35,8 @@ class SenseiClient:
         self._streaming = False
         self._timeout_task: asyncio.Task | None = None
 
+        self.sensei_rpc_pb2, self.sensei_rpc_pb2_grpc = grpc_gen.modules_from_proto(str(sensei_proto))
+
         observer.subscribe("ToggleLedRequest", self._update_led)
         observer.subscribe("PrintToMockDisplay", self._print_to_mock_display)
 
@@ -41,7 +44,7 @@ class SenseiClient:
         """Establish connection to the gRPC server."""
         logger.info(f"Connecting to Sensei at {self.server_address}")
         self.channel = grpc.aio.insecure_channel(self.server_address)
-        self.stub = sensei_rpc_pb2_grpc.SenseiControllerStub(self.channel)
+        self.stub = self.sensei_rpc_pb2_grpc.SenseiControllerStub(self.channel)
         logger.info("Connected to Sensei")
 
     async def disconnect(self) -> None:
@@ -103,14 +106,14 @@ class SenseiClient:
             raise RuntimeError("Not connected to server. Call connect() first.")
 
         logger.info("Requesting controller states via RefreshAllStates()")
-        response = await self.stub.RefreshAllStates(sensei_rpc_pb2.GenericVoidValue())
+        response = await self.stub.RefreshAllStates(self.sensei_rpc_pb2.GenericVoidValue())
 
     async def get_controller_map(self) -> dict:
         if not self.stub:
             raise RuntimeError("Not connected to server. Call connect() first.")
         controller_map = {}
 
-        response = await self.stub.GetControllerMap(sensei_rpc_pb2.GenericVoidValue())
+        response = await self.stub.GetControllerMap(self.sensei_rpc_pb2.GenericVoidValue())
 
         for pot in response.pots:
             controller_map[pot.name] = pot.id
@@ -150,7 +153,7 @@ class SenseiClient:
         if not self.stub:
             raise RuntimeError("Not connected to server. Call connect() first.")
 
-        request = sensei_rpc_pb2.SubscribeRequest()
+        request = self.sensei_rpc_pb2.SubscribeRequest()
         if controller_ids:
             request.controller_ids.extend(controller_ids)
             logger.info(f"Subscribing to events for controllers: {controller_ids}")
@@ -177,7 +180,7 @@ class SenseiClient:
         if not self.stub:
             raise RuntimeError("Not connected to server. Call connect() first.")
 
-        request = sensei_rpc_pb2.UpdateLedRequest(controller_id=led_id, active=active)
+        request = self.sensei_rpc_pb2.UpdateLedRequest(controller_id=led_id, active=active)
         await self.stub.UpdateLed(request)
         logger.debug(f"Updated LED {led_id} to {'active' if active else 'inactive'}")
 
@@ -185,7 +188,7 @@ class SenseiClient:
         if not self.stub:
             raise RuntimeError("Not connected to server. Call connect() first.")
 
-        request = sensei_rpc_pb2.WriteToDisplayRequest(data=message)
+        request = self.sensei_rpc_pb2.WriteToDisplayRequest(data=message)
         await self.stub.WriteToDisplay(request)
         logger.debug(f"Printed {message} to display")
 
