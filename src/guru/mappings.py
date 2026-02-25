@@ -7,6 +7,7 @@ returned by RefreshAllStates().
 """
 
 import asyncio
+import time
 from typing import Callable
 from elkpy.sushicontroller import SushiController
 from . import observer
@@ -57,6 +58,7 @@ class TrackParameterMapping:
         self.param_id = sc.parameters.get_parameter_id(
             self.track_id, self.parameter_name
         )
+        self.value = sc.parameters.get_parameter_value(self.track_id, self.param_id)
 
     def __repr__(self) -> str:
         return f"TrackParameterMapping: track={self.track_name}, parameter={self.parameter_name}{f', controller={self.controller_name}' if self.controller_name else ''}"
@@ -84,6 +86,7 @@ class PluginParameterMapping:
         self.param_id = sc.parameters.get_parameter_id(
             self.plugin_id, self.parameter_name
         )
+        self.value = sc.parameters.get_parameter_value(self.plugin_id, self.param_id)
 
     def __repr__(self) -> str:
         return f"PluginParameterMapping: plugin={self.plugin_name}, parameter={self.parameter_name}{f', controller={self.controller_name}' if self.controller_name else ''}"
@@ -146,6 +149,34 @@ class ComboMapping:
             m.init(sc)
 
 
+class AcceleratedEncoder:
+    def __init__(self, min_val=0.0, max_val=1.0, base_step=0.01, max_step=0.1, accel_window=0.1):
+        self.min_val = min_val
+        self.max_val = max_val
+        self.base_step = base_step
+        self.max_step = max_step
+        self.accel_window = accel_window  # seconds — faster than this = accelerate
+        self.last_time = None
+
+    def tick(self, delta: int, base_value: float) -> float:
+        now = time.monotonic()
+
+        if self.last_time is None:
+            step = self.base_step
+        else:
+            dt = now - self.last_time
+            # Faster turns = smaller dt = bigger step
+            if dt < self.accel_window:
+                factor = 1.0 - (dt / self.accel_window)  # 0..1
+                step = self.base_step + factor * (self.max_step - self.base_step)
+            else:
+                step = self.base_step
+
+        self.last_time = now
+        value = min(max(base_value + delta * step, self.min_val), self.max_val)
+        return value
+
+
 class MappingManager:
     """This class consumes UiEvents and maps them to Sushi controls or other internal settings."""
 
@@ -157,6 +188,7 @@ class MappingManager:
         observer.subscribe(
             event="MappingsInitialized", cb=self._handle_mappings_initialized
         )
+        self._accelerator = AcceleratedEncoder()
         self._mappings_initialized: bool = False
         self.mappings_by_controller_id: list[dict[
             int,
@@ -396,6 +428,7 @@ class MappingManager:
                 param_id=mapping.param_id,
                 value=value,
             )
+
     async def _handle_relative_event(self, event, mapping) -> None:
         """
         handle relative events (encoders).
@@ -405,18 +438,13 @@ class MappingManager:
         - apply scaling/acceleration
         - clamp values to parameter ranges
         """
-        # for relative events, we'd need to get the current value and increment/decrement
-        # this requires additional state tracking and parameter info
-        logger.warning(
-            f"relative event handling not fully implemented for controller {event.controller_id}. "
-            f"delta: {event.relative_ev.value}"
+        value = self._accelerator.tick(event.relative_ev.value, mapping.value)
+        mapping.value = value
+        logger.debug(
+            f"Relative event: controller={event.controller_id}, "
+            f"New value={value}"
         )
-
-        # TODO: implement relative value changes
-        # current_value = get_current_parameter_value(...)
-        # new_value = current_value + (event.value * step_size)
-        # new_value = clamp(new_value, param_min, param_max)
-        # self.sushi_client.set_parameter_value(...)
+        await self._create_sushi_event(event, mapping, value)
 
     async def _handle_range_event(self, event, mapping) -> None:
         """

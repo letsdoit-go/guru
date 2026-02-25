@@ -14,7 +14,7 @@ from . import observer
 
 logger = logging.getLogger('SENSEI')
 
-IDLING_TIMEOUT_S = 3
+IDLING_TIMEOUT_S = 5
 
 sensei_proto = Path(__file__).parent / "sensei_rpc.proto"
 
