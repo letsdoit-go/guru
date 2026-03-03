@@ -338,6 +338,7 @@ class MappingManager:
         return frozenset(self._pressed)
 
     def _on_multipress_settled(self, task: asyncio.Task) -> None:
+        print("_on_multipress_settled")
         if task.cancelled():
             return
         pressed = task.result()
