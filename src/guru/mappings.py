@@ -347,6 +347,7 @@ class MappingManager:
         asyncio.create_task(self._dispatch_settled_presses(pressed, pending))
 
     async def _dispatch_settled_presses(self, pressed: frozenset, pending: list) -> None:
+        #TODO: can't have only toggle events!
         if not pending:
             return
         if len(pressed) > 1:
