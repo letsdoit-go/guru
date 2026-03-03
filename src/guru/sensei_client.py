@@ -79,6 +79,7 @@ class SenseiClient:
                     logger.info("Event stream stopping (streaming flag is False)")
                     break
                 # Emit event to observer
+                logger.debug(f"Received Sensei event: {event}")
                 await observer.emit("UiEvent", event)
                 
                 # Reset the idling timeout

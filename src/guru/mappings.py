@@ -16,7 +16,8 @@ import logging
 logger = logging.getLogger('MAPPINGS')
 
 
-MULTIPRESS_DETECTION_WINDOW_S = 0.05
+# MULTIPRESS_DETECTION_WINDOW_S = 3
+MULTIPRESS_DETECTION_WINDOW_S = 0.1
 
 
 class Control:
@@ -25,6 +26,9 @@ class Control:
     def __init__(self, controller_name: str, cb: Callable | None):
         self.controller_name = controller_name
         self.callback = cb
+
+    def __repr__(self) -> str:
+        return f"Control mapping on {self.controller_name} -> cb: {self.callback}"
 
     def init(self, sc) -> None: ...
 
@@ -202,6 +206,7 @@ class MappingManager:
         self.controller_map: dict | None = None
         self._mode = 0
         self._pressed: set[str] = set()
+        self._pending_press_events: list = []
         self._multipress_detection_task: asyncio.Task | None = None
         self._multipress_mappings: dict[frozenset[str], object] = {}
 
@@ -320,19 +325,41 @@ class MappingManager:
     async def _detect_multi_presses(self, event) -> None:
         if event.toggle_ev.value == 1:
             self._pressed.add(next(name for name, id in self.controller_map.items() if id == event.controller_id))
-            if self._multipress_detection_task:
+            self._pending_press_events.append(event)
+            if self._multipress_detection_task and not self._multipress_detection_task.done():
                 self._multipress_detection_task.cancel()
             self._multipress_detection_task = asyncio.create_task(self._multipress_detection_expired())
+            self._multipress_detection_task.add_done_callback(self._on_multipress_settled)
         else:
             self._pressed.discard(next(name for name, id in self.controller_map.items() if id == event.controller_id))
 
-    async def _multipress_detection_expired(self) -> None:
-        try:
-            await asyncio.sleep(MULTIPRESS_DETECTION_WINDOW_S)
-        except asyncio.CancelledError:
+    async def _multipress_detection_expired(self) -> frozenset:
+        await asyncio.sleep(MULTIPRESS_DETECTION_WINDOW_S)
+        return frozenset(self._pressed)
+
+    def _on_multipress_settled(self, task: asyncio.Task) -> None:
+        if task.cancelled():
             return
+        pressed = task.result()
+        pending = self._pending_press_events[:]
+        self._pending_press_events.clear()
+        asyncio.create_task(self._dispatch_settled_presses(pressed, pending))
+
+    async def _dispatch_settled_presses(self, pressed: frozenset, pending: list) -> None:
+        if not pending:
+            return
+        if len(pressed) > 1:
+            mapping = self._multipress_mappings.get(pressed)
+            if mapping:
+                await self._handle_toggle_event(pending[0], mapping)
+        else:
+            for ev in pending:
+                mapping = self.mappings_by_controller_id[self._mode].get(ev.controller_id)
+                if mapping:
+                    await self._handle_toggle_event(ev, mapping)
 
     def _get_multi_switch_mapping(self, pressed: frozenset, event):
+        logger.debug("Getting multi mapping...")
         if len(pressed) == 1:
             return self.mappings_by_controller_id[self._mode].get(event.controller_id)
         elif len(pressed) > 1:
@@ -350,8 +377,8 @@ class MappingManager:
 
         if event_type == "toggle_ev":
             await self._detect_multi_presses(event)
-            if self._multipress_detection_task:
-                await self._multipress_detection_task
+            if event.toggle_ev.value == 1:
+                return  # press dispatch deferred to _on_multipress_settled
             mapping = self._get_multi_switch_mapping(frozenset(self._pressed), event)
         else:
             mapping = self.mappings_by_controller_id[self._mode].get(event.controller_id)
@@ -359,6 +386,8 @@ class MappingManager:
         if not mapping:
             logger.debug(f"no mapping for controller id {event.controller_id}")
             return
+
+        logger.debug(f"Mapping = {mapping}")
 
         match mapping:
             case Control():
