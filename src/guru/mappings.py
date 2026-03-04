@@ -382,6 +382,7 @@ class MappingManager:
             else:
                 mapping = self._get_multi_switch_mapping(frozenset(self._pressed), event)
                 await self.run_mapping(mapping, event, event_type)
+                self._pressed = set()
         else:
             await self.run_mapping(self.mappings_by_controller_id[self._mode].get(event.controller_id), event, event_type)
 
@@ -502,7 +503,10 @@ class MappingManager:
 
     async def _handle_control_event(self, mapping, event) -> None:
         logger.debug(f"Received control event: {event} -> cb: {mapping.callback}")
-        await mapping.callback(self._get_value_from_event(event))
+        if val := self._get_value_from_event(event):
+            await mapping.callback(val)
+        else:
+            await mapping.callback()
 
     async def _handle_bypass_event(self, mapping, event) -> None:
         logger.debug(f"Toggling bypass state for plugin {mapping.controller_name}")
