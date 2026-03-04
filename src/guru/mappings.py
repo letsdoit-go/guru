@@ -506,7 +506,7 @@ class MappingManager:
         if val := self._get_value_from_event(event):
             await mapping.callback(val)
         else:
-            await mapping.callback()
+            mapping.callback()
 
     async def _handle_bypass_event(self, mapping, event) -> None:
         logger.debug(f"Toggling bypass state for plugin {mapping.controller_name}")
