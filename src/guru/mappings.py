@@ -338,7 +338,6 @@ class MappingManager:
         return frozenset(self._pressed)
 
     def _on_multipress_settled(self, task: asyncio.Task) -> None:
-        print("_on_multipress_settled")
         if task.cancelled():
             return
         pressed = task.result()
@@ -378,19 +377,18 @@ class MappingManager:
         event_type = event.WhichOneof("event")
 
         if event_type == "toggle_ev":
-            await self._detect_multi_presses(event)
             if event.toggle_ev.value == 1:
-                return  # press dispatch deferred to _on_multipress_settled
-            mapping = self._get_multi_switch_mapping(frozenset(self._pressed), event)
+                self._pressed.add(next(name for name, id in self.controller_map.items() if id == event.controller_id))
+            else:
+                mapping = self._get_multi_switch_mapping(frozenset(self._pressed), event)
+                await self.run_mapping(mapping, event, event_type)
         else:
-            mapping = self.mappings_by_controller_id[self._mode].get(event.controller_id)
+            await self.run_mapping(self.mappings_by_controller_id[self._mode].get(event.controller_id), event, event_type)
 
+    async def run_mapping(self, mapping, event, event_type) -> None:
         if not mapping:
             logger.debug(f"no mapping for controller id {event.controller_id}")
             return
-
-        logger.debug(f"Mapping = {mapping}")
-
         match mapping:
             case Control():
                 await self._handle_control_event(mapping, event)
