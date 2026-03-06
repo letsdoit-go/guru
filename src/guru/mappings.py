@@ -16,9 +16,6 @@ import logging
 logger = logging.getLogger('MAPPINGS')
 
 
-# MULTIPRESS_DETECTION_WINDOW_S = 3
-MULTIPRESS_DETECTION_WINDOW_S = 0.1
-
 
 class Control:
     """ This mapping triggers an arbitrary callback. Useful for switching modes or emitting a specific signal"""
@@ -322,43 +319,6 @@ class MappingManager:
             case _:
                 raise
 
-    async def _detect_multi_presses(self, event) -> None:
-        if event.toggle_ev.value == 1:
-            self._pressed.add(next(name for name, id in self.controller_map.items() if id == event.controller_id))
-            self._pending_press_events.append(event)
-            if self._multipress_detection_task and not self._multipress_detection_task.done():
-                self._multipress_detection_task.cancel()
-            self._multipress_detection_task = asyncio.create_task(self._multipress_detection_expired())
-            self._multipress_detection_task.add_done_callback(self._on_multipress_settled)
-        else:
-            self._pressed.discard(next(name for name, id in self.controller_map.items() if id == event.controller_id))
-
-    async def _multipress_detection_expired(self) -> frozenset:
-        await asyncio.sleep(MULTIPRESS_DETECTION_WINDOW_S)
-        return frozenset(self._pressed)
-
-    def _on_multipress_settled(self, task: asyncio.Task) -> None:
-        if task.cancelled():
-            return
-        pressed = task.result()
-        pending = self._pending_press_events[:]
-        self._pending_press_events.clear()
-        asyncio.create_task(self._dispatch_settled_presses(pressed, pending))
-
-    async def _dispatch_settled_presses(self, pressed: frozenset, pending: list) -> None:
-        #TODO: can't have only toggle events!
-        if not pending:
-            return
-        if len(pressed) > 1:
-            mapping = self._multipress_mappings.get(pressed)
-            if mapping:
-                await self._handle_toggle_event(pending[0], mapping)
-        else:
-            for ev in pending:
-                mapping = self.mappings_by_controller_id[self._mode].get(ev.controller_id)
-                if mapping:
-                    await self._handle_toggle_event(ev, mapping)
-
     def _get_multi_switch_mapping(self, pressed: frozenset, event):
         logger.debug("Getting multi mapping...")
         if len(pressed) == 1:
@@ -445,6 +405,8 @@ class MappingManager:
             f"value={value}"
         )
 
+        mapping.value = value
+
         if isinstance(mapping, PluginParameterMapping):
             await self._emit_sushi_plugin_event(
                 track_id=mapping.track_id,
@@ -458,6 +420,8 @@ class MappingManager:
                 param_id=mapping.param_id,
                 value=value,
             )
+
+        await observer.emit("UpdateParameter", mapping.parameter_name, mapping.value)
 
     async def _handle_relative_event(self, event, mapping) -> None:
         """
