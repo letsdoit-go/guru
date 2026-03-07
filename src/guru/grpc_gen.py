@@ -38,9 +38,9 @@ def modules_from_proto(proto_filename: str) -> Tuple[ModuleType, ModuleType]:
             rel_proto_filename,
         ]
         gprotoc.main(protoc_args)
-        print("SENSEI: Compiled proto file!")
+        print("PROTO: Compiled proto file!")
     else:
-        print("SENSEI: Compiled proto found!")
+        print("PROTO: Compiled proto found!")
 
     proto_module = importlib.import_module(proto_module_name)
     grpc_module = importlib.import_module(grpc_module_name)

@@ -421,7 +421,7 @@ class MappingManager:
                 value=value,
             )
 
-        await observer.emit("UpdateParameter", mapping.parameter_name, mapping.value)
+        await observer.emit("UpdateParameter", mapping.parameter_name)
 
     async def _handle_relative_event(self, event, mapping) -> None:
         """
