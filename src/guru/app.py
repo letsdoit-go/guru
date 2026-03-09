@@ -99,7 +99,7 @@ class GlueApp:
         self.logger.info("Initializing Sensei client")
         await self.sensei_client.connect()
 
-        # Get controller name->ID mapping with retry
+        # Get caontroller name->ID mapping with retry
         self.logger.info("Fetching controller states")
         while not self._shutdown_event.is_set():
             try:

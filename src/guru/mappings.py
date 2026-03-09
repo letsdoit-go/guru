@@ -34,6 +34,7 @@ class MultiSwitch:
     """ Assigns a mapping to a combination of switches when they are pressed at the same time"""
     def __init__(self, controller_names: list, mapping) -> None:
         self.controller_names = controller_names
+        self.controller_name = controller_names
         self.mapping = mapping
 
     def init(self, sc) -> None:
@@ -90,7 +91,7 @@ class PluginParameterMapping:
         self.value = sc.parameters.get_parameter_value(self.plugin_id, self.param_id)
 
     def __repr__(self) -> str:
-        return f"PluginParameterMapping: plugin={self.plugin_name}, parameter={self.parameter_name}{f', controller={self.controller_name}' if self.controller_name else ''}"
+        return f"PluginParameterMapping: plugin={self.plugin_name}, parameter={self.parameter_name}{f', controller={self.controller_name}' if self.controller_name else ''}, value={self.value}"
 
 
 class SwitchMapping(PluginParameterMapping):
