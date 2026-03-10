@@ -49,11 +49,13 @@ class TrackParameterMapping:
         parameter_name: str,
         controller_name: str | None = None,
         preprocessor: Callable | None = None,
+        parameter_label: str | None = None
     ) -> None:
         self.track_name = track_name
         self.parameter_name = parameter_name
         self.controller_name = controller_name
         self.preprocessor = preprocessor
+        self.parameter_label = parameter_label if parameter_label else parameter_name
 
     def init(self, sc: SushiController) -> None:
         self.track_id = sc.audio_graph.get_track_id(self.track_name)
@@ -75,12 +77,14 @@ class PluginParameterMapping:
         parameter_name: str,
         controller_name: str | None = None,
         preprocessor: Callable | None = None,
+        parameter_label: str | None = None
     ):
         self.track_name = track_name
         self.plugin_name = plugin_name
         self.parameter_name = parameter_name
         self.controller_name = controller_name
         self.preprocessor = preprocessor
+        self.parameter_label = parameter_label if parameter_label else parameter_name
 
     def init(self, sc: SushiController) -> None:
         self.track_id = sc.audio_graph.get_track_id(self.track_name)
