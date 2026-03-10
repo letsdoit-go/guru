@@ -21,13 +21,15 @@ class Preset:
         self,
         name: str,
         initial_state: list | None = None,
-        mode: int | None = None
+        mode: int | None = None,
+        label: str | None = None
     ) -> None:
         self.name = name
         self.initial_state = initial_state if initial_state else []
         self.parameter_states: list = []
         self.bypass_states: list = []
         self.mode = mode
+        self.label = label if label else name
 
     def init(self, sc: SushiController) -> None:
         for state in self.initial_state:
