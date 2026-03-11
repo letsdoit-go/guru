@@ -63,12 +63,15 @@ Central hub that routes hardware events to Sushi parameters based on user-define
 - Processes incoming hardware events and applies transformations (preprocessors)
 - Routes events to appropriate Sushi targets (plugins or tracks)
 - Handles different event types (analog, toggle, relative, range)
+- Manages multi-switch combinations and custom Control callbacks
+- Provides accelerated encoder handling for smooth rotary control
 
 **Events Subscribed:**
 - `UiEvent` - Processes hardware events and routes to Sushi
 - `NewControllerMap` - Updates internal controller name→ID mapping
 - `MappingsInitialized` - Confirms Sushi initialization completed
-- `ModeSwitch` - switches mappings around according to current mode
+- `ModeSwitch` - Switches to specified mode
+- `CycleMode` - Cycles to next mode (loops back to mode 0)
 
 **Events Emitted:**
 - `InitMapping` - Requests Sushi to initialize mappings
@@ -80,6 +83,9 @@ Central hub that routes hardware events to Sushi parameters based on user-define
 - `SushiTrackEvent` - Requests track parameter change
   - Emitted when hardware events map to track parameters
   - Payload: `dict` with `track_id`, `param_id`, `value`
+- `UpdateParameter` - Notifies parameter value changed
+  - Emitted after any parameter update
+  - Payload: `str` (parameter_name)
 
 #### 3. SushiClient (sushi_client.py)
 **Audio Engine Interface Manager**
@@ -96,6 +102,8 @@ Wraps elkpy's SushiController and manages communication with the Sushi audio eng
 - `InitMapping` - Initializes all mappings with Sushi
 - `SushiPluginEvent` - Sets plugin parameter values
 - `SushiTrackEvent` - Sets track parameter values
+- `SetBypassStateOnPlugin` - Sets plugin bypass state
+- `SetInitialStateOnPlugin` - Sets plugin parameter values
 
 **Events Emitted:**
 - `MappingsInitialized` - Signals successful mapping initialization
@@ -103,6 +111,34 @@ Wraps elkpy's SushiController and manages communication with the Sushi audio eng
   - Payload: None
 - `SushiParameterUpdate` - (only if subscribed to Sushi's notifications)
   - Emitted when Sushi notifies of a parameter update
+
+#### 4. PresetManager (presets.py)
+**Audio Configuration Manager**
+
+Manages complete audio effect configurations including plugin states, parameter values, and bypass settings.
+
+**Responsibilities:**
+- Stores and organizes presets with plugin configurations
+- Loads presets by index or name
+- Applies parameter values and bypass states to Sushi plugins
+- Provides preset navigation (next/previous)
+- Rate-limits preset switching to prevent rapid changes
+
+**Events Subscribed:**
+- `LoadPreset` - Loads preset by index
+- `LoadPresetByName` - Loads preset by name
+- `LoadNextPreset` - Cycles to next preset
+
+**Events Emitted:**
+- `InitPreset` - Initializes preset with Sushi controller
+  - Emitted during preset setup
+  - Payload: `SushiController` instance
+- `SetBypassStateOnPlugin` - Requests plugin bypass state change
+  - Emitted when loading preset
+  - Payload: `dict` with `processor`, `bypassed`
+- `SetInitialStateOnPlugin` - Requests plugin parameter initialization
+  - Emitted when loading preset
+  - Payload: `dict` with `processor`, `parameters`
 
 ## Event Flow Examples
 
@@ -156,6 +192,17 @@ Wraps elkpy's SushiController and manages communication with the Sushi audio eng
 | `MappingsInitialized` | SushiClient | MappingManager | None | Confirm initialization complete |
 | `SushiPluginEvent` | MappingManager | SushiClient | `dict` (track_id, plugin_id, param_id, value) | Request plugin parameter change |
 | `SushiTrackEvent` | MappingManager | SushiClient | `dict` (track_id, param_id, value) | Request track parameter change |
+| `UpdateParameter` | MappingManager | Any | `str` (parameter_name) | Notify parameter value changed |
+| `ModeSwitch` | Any | MappingManager | `int` (mode_id) | Switch to specific mode |
+| `CycleMode` | Any | MappingManager | None | Cycle to next mode |
+| `LoadPreset` | Any | PresetManager | `int` (preset_index) | Load preset by index |
+| `LoadPresetByName` | Any | PresetManager | `str` (preset_name) | Load preset by name |
+| `LoadNextPreset` | Any | PresetManager | None | Cycle to next preset |
+| `InitPreset` | PresetManager | Preset | `SushiController` | Initialize preset with Sushi |
+| `SetBypassStateOnPlugin` | PresetManager | SushiClient | `dict` (processor, bypassed) | Set plugin bypass state |
+| `SetInitialStateOnPlugin` | PresetManager | SushiClient | `dict` (processor, parameters) | Set plugin parameters |
+| `PrintToMockDisplay` | Any | SenseiClient | `str` (message) | Print to mock display |
+| `ToggleLedRequest` | Any | SenseiClient | `dict` (led_id, state) | Toggle LED on hardware |
 
 ---
 
@@ -195,7 +242,15 @@ app = GlueApp(
 Create your mappings using the mapping classes from `guru.mappings`:
 
 ```python
-from guru.mappings import PluginParameterMapping, TrackParameterMapping, SwitchMapping, ComboMapping
+from guru.mappings import (
+    PluginParameterMapping,
+    TrackParameterMapping,
+    SwitchMapping,
+    ComboMapping,
+    Control,
+    MultiSwitch
+)
+from guru import observer
 
 MAPPINGS = [[
     # Map a pot to a plugin parameter
@@ -204,7 +259,8 @@ MAPPINGS = [[
         plugin_name="distortion",
         parameter_name="gain",
         controller_name="POT1",
-        preprocessor=lambda x: 0.4 + x * 0.6  # Linear interpolation
+        preprocessor=lambda x: 0.4 + x * 0.6,  # Linear interpolation
+        parameter_label="Distortion Gain"  # Optional custom display label
     ),
 
     # Map a pot directly to a track parameter
@@ -235,12 +291,80 @@ MAPPINGS = [[
                 plugin_name="distortion",
             )
         ]
+    ),
+
+    # Map a switch to trigger custom Python callback
+    Control(
+        controller_name="SW3",
+        cb=lambda _: observer.emit("CycleMode")  # Switch to next mode
+    ),
+
+    # Map simultaneous button press to a function
+    MultiSwitch(
+        controller_names=["SW1", "SW2"],  # Both must be pressed
+        mapping=PluginParameterMapping(
+            track_name="guitar",
+            plugin_name="distortion",
+            parameter_name="mode",
+            controller_name=None,
+            preprocessor=lambda x: 2.0  # Trigger special mode
+        )
     )
 ]]
 ```
 
 Be aware that track, plugin and parameter names *MUST* match their counterparts in Sushi's configuration file.
 Similarly, controller names *MUST* match theirs in Sensei's configuration.
+
+#### Control Mappings
+
+`Control` allows you to trigger arbitrary Python callbacks when a hardware controller is activated. This is useful for mode switching, preset changes, or custom logic that doesn't map directly to Sushi parameters.
+
+```python
+Control(
+    controller_name="MODE_BTN",
+    cb=my_callback  # Can be sync or async function
+)
+```
+
+The callback receives the controller value as its argument. For switches, this is typically the button state.
+
+**Common use cases:**
+- Mode switching: `Control(controller_name="MODE", cb=lambda _: observer.emit("CycleMode"))`
+- Preset switching: `Control(controller_name="NEXT", cb=lambda _: observer.emit("LoadNextPreset"))`
+- Custom DSP logic or UI updates
+
+#### MultiSwitch
+
+`MultiSwitch` maps multiple switches pressed simultaneously to a single action. This enables "combo" controls where holding multiple buttons triggers special functions.
+
+```python
+MultiSwitch(
+    controller_names=["SW1", "SW2"],  # All must be pressed together
+    mapping=Control(
+        controller_name=None,
+        cb=lambda _: print("Secret combo activated!")
+    )
+)
+```
+
+The mapping is triggered when all specified switches are pressed, and released when any switch is released.
+
+#### Parameter Labels
+
+Both `PluginParameterMapping` and `TrackParameterMapping` support optional `parameter_label` for display purposes:
+
+```python
+PluginParameterMapping(
+    track_name="guitar",
+    plugin_name="eq",
+    parameter_name="freq_1",  # Internal parameter name
+    parameter_label="Bass Frequency",  # Human-readable label for UI
+    controller_name="POT1"
+)
+```
+
+This allows you to maintain internal consistency with Sushi parameter names while presenting user-friendly labels in displays or documentation.
 
 **NOTE**: If you do not have access to Sensei configuration file (`sensei_config.json`), you can get it from
 a running Sensei with:
@@ -364,12 +488,195 @@ Binary state from switches, buttons, footswitches.
 ### RelativeEvent
 Delta values from rotary encoders.
 - **Fields:** `controller_id`, `timestamp`, `value` (int delta)
-- **Status:** ⚠️ Not fully implemented (logs warning)
+- **Features:** Automatic acceleration for smooth, speed-sensitive control
+
+#### Encoder Acceleration
+
+Rotary encoders use an `AcceleratedEncoder` that adapts step size based on rotation speed:
+
+- **Slow turns**: Small, precise steps (default: 0.01) for fine adjustments
+- **Fast turns**: Larger steps (up to 0.1) for quick sweeping
+- **Smooth interpolation**: Speed factor calculated from time between events
+
+**Configuration** (happens automatically in `MappingManager`):
+```python
+AcceleratedEncoder(
+    min_val=0.0,        # Minimum parameter value
+    max_val=1.0,        # Maximum parameter value
+    base_step=0.01,     # Step size for slow turns
+    max_step=0.1,       # Step size for fast turns
+    accel_window=0.1    # Time window (seconds) for acceleration
+)
+```
+
+The acceleration factor is calculated as:
+```
+factor = 1.0 - (time_since_last_event / accel_window)
+step = base_step + factor * (max_step - base_step)
+```
+
+This provides intuitive control: slow, deliberate turns for precision, fast spins for dramatic changes.
 
 ### RangeEvent
 Discrete positions from rotary switches, multi-position switches.
 - **Fields:** `controller_id`, `timestamp`, `value` (int position)
 - **Usage:** Converts to float and applies preprocessing
+
+## Preset Management
+
+The `PresetManager` allows you to define and switch between complete audio effect configurations, including plugin parameters and bypass states.
+
+### Defining Presets
+
+A preset contains plugin states that should be applied when the preset is loaded:
+
+```python
+from guru.presets import Preset
+
+clean_preset = Preset(
+    name="clean",
+    label="Clean Tone",  # Optional custom display label
+    mode=0,  # Optional mode association
+    initial_state=[
+        {
+            "processor": "distortion",
+            "bypassed": True,  # Bypass this plugin for clean tone
+            "parameters": {}
+        },
+        {
+            "processor": "reverb",
+            "bypassed": False,
+            "parameters": {
+                "room_size": 0.3,
+                "damping": 0.5
+            }
+        }
+    ]
+)
+
+heavy_preset = Preset(
+    name="heavy",
+    label="Heavy Distortion",
+    mode=0,
+    initial_state=[
+        {
+            "processor": "distortion",
+            "bypassed": False,
+            "parameters": {
+                "gain": 0.9,
+                "tone": 0.6
+            }
+        },
+        {
+            "processor": "reverb",
+            "bypassed": False,
+            "parameters": {
+                "room_size": 0.7,
+                "damping": 0.3
+            }
+        }
+    ]
+)
+```
+
+**Preset Fields:**
+- `name`: Unique identifier for the preset
+- `label`: Human-readable display name (defaults to `name`)
+- `mode`: Optional mode number to associate preset with specific mapping mode
+- `initial_state`: List of plugin states with parameters and bypass settings
+
+### Using the Preset Manager
+
+The `PresetManager` is automatically created when you initialize a `GlueApp`:
+
+```python
+from guru.app import GlueApp
+from guru.presets import Preset
+from guru import observer
+
+async def main():
+    app = GlueApp(
+        mappings=MAPPINGS,
+        sensei_address="localhost:50051",
+        sushi_address="localhost:51051"
+    )
+
+    await app.initialize()
+
+    # Add presets
+    app.preset_manager.add_presets([clean_preset, heavy_preset])
+
+    # Load preset by index
+    app.preset_manager.load_preset(0)  # Load "clean"
+
+    # Load preset by name
+    app.preset_manager.load_preset_by_name("heavy")
+
+    # Cycle through presets
+    app.preset_manager.load_next_preset()
+    app.preset_manager.load_previous_preset()
+
+    # Get current preset info
+    current = app.preset_manager.get_current_preset_name()
+    all_names = app.preset_manager.get_preset_names()
+
+    await app.run()
+```
+
+### Preset Events
+
+You can trigger preset changes via the event system:
+
+```python
+# Load preset by index
+await observer.emit("LoadPreset", 0)
+
+# Load preset by name
+await observer.emit("LoadPresetByName", "heavy")
+
+# Cycle to next preset
+await observer.emit("LoadNextPreset")
+```
+
+**Using Control Mappings for Preset Switching:**
+
+```python
+from guru.mappings import Control
+from guru import observer
+
+MAPPINGS = [[
+    Control(
+        controller_name="PRESET_UP",
+        cb=lambda _: observer.emit("LoadNextPreset")
+    ),
+    Control(
+        controller_name="PRESET_DOWN",
+        cb=lambda _: observer.emit("LoadPreviousPreset")
+    )
+]]
+```
+
+### Preset Manager Features
+
+- **Rate limiting**: Minimum 2-second interval between preset changes to prevent rapid switching
+- **Plugin bypass control**: Automatically enables/disables plugins per preset
+- **Parameter initialization**: Sets all specified parameters when preset loads
+- **Status tracking**: Maintains current preset state and history
+- **Event-driven**: Integrates seamlessly with the observer pattern
+
+### Preset Manager API
+
+| Method | Description | Returns |
+|--------|-------------|---------|
+| `add_preset(preset)` | Add single preset | None |
+| `add_presets(presets)` | Add multiple presets | None |
+| `load_preset(index)` | Load preset by index | None |
+| `load_preset_by_name(name)` | Load preset by name | None |
+| `load_next_preset()` | Cycle to next preset | None |
+| `load_previous_preset()` | Cycle to previous preset | None |
+| `get_current_preset_name()` | Get active preset name | str or None |
+| `get_preset_names()` | Get all preset names | list[str] |
+| `get_status()` | Get manager status | dict |
 
 ## Development
 
