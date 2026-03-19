@@ -370,14 +370,13 @@ class MappingManager:
                 mapping = self._get_multi_switch_mapping(
                     frozenset(self._pressed), event
                 )
-                await self.run_mapping(mapping, event, event_type)
                 self._pressed = set()
         else:
-            await self.run_mapping(
-                self.mappings_by_controller_id[self._mode].get(event.controller_id),
-                event,
-                event_type,
-            )
+            mapping = self.mappings_by_controller_id[self._mode].get(event.controller_id)
+            if event_type == "relative_ev" and hasattr(mapping, "value"):
+                mapping.value = self._accelerator.tick(event.relative_ev.value, mapping.value)
+
+        await self.run_mapping(mapping, event, event_type)
 
     async def run_mapping(self, mapping, event, event_type) -> None:
         if not mapping:
@@ -392,9 +391,8 @@ class MappingManager:
                 await self._handle_bypass_event(mapping, event)
                 return
             case ComboMapping():
-                for m in mapping.mappings:
-                    await self.run_mapping(m, event, event_type)
-                    # await self._handle_analog_event(event, m)
+                logger.debug("Running Combo!")
+                await self._run_combo_mapping(mapping, event, event_type)
                 return
             case _:
                 if event_type == "analog_ev":
@@ -407,6 +405,11 @@ class MappingManager:
                     await self._handle_range_event(event, mapping)
                 else:
                     logger.warning(f"unknown event type: {event_type}")
+
+    async def _run_combo_mapping(self, combo_mapping, event, event_type) -> None:
+        for m in combo_mapping.mappings:
+            m.value = combo_mapping.value
+            await self.run_mapping(m, event, event_type)
 
     async def _handle_analog_event(self, event, mapping) -> None:
         """handle analog controller events (pots, faders)."""
@@ -463,12 +466,10 @@ class MappingManager:
         - apply scaling/acceleration
         - clamp values to parameter ranges
         """
-        value = self._accelerator.tick(event.relative_ev.value, mapping.value)
-        mapping.value = value
         logger.debug(
-            f"Relative event: controller={event.controller_id}, New value={value}"
+            f"Relative event: controller={event.controller_id}, New value={mapping.value}"
         )
-        await self._create_sushi_event(event, mapping, value)
+        await self._create_sushi_event(event, mapping, mapping.value)
 
     async def _handle_range_event(self, event, mapping) -> None:
         """
