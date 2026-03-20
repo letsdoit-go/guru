@@ -146,16 +146,17 @@ class ComboMapping:
         mappings: list[TrackParameterMapping | PluginParameterMapping | SwitchMapping],
         controller_name: str,
         parameter_label: str = "Combo",
+        initial_value: float = 0.0
     ) -> None:
         self.mappings = mappings
         self.controller_name = controller_name
         self.parameter_label = parameter_label
+        self.value = initial_value
 
     def __repr__(self) -> str:
         return f"ComboMapping - [{self.mappings}]"
 
     def init(self, sc: SushiController) -> None:
-        self.value = 0.0
         for m in self.mappings:
             m.init(sc)
 
