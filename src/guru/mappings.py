@@ -366,6 +366,7 @@ class MappingManager:
                         if id == event.controller_id
                     )
                 )
+                return
             else:
                 mapping = self._get_multi_switch_mapping(
                     frozenset(self._pressed), event
