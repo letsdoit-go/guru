@@ -16,6 +16,9 @@ from PIL import Image, ImageDraw
 from . import observer
 import time
 
+# TODO: fix with proper rendering, for now only allow writes once per this many seconds
+LUMA_RENDER_THROTTLE = 0.2
+
 if LUMA_AVAILABLE:
     class GpiodAdapter:
         """GPIO adapter for luma using gpiod."""
@@ -70,6 +73,7 @@ class DisplayManagerBase:
         observer.subscribe(event="DrawText", cb=self.render_text)
         self.last_write = 0
         self._init_display(chip_name)
+        self.render_throttle = 0
 
     def _init_display(self, chip_name: str) -> None:
         pass
@@ -104,10 +108,11 @@ class LumaDisplayManager(DisplayManagerBase):
         gpio = GpiodAdapter(chip_name=chip_name)  # type: ignore[name-defined]
         serial = spi(port=1, device=0, gpio_DC=14, gpio_RST=12, gpio=gpio)  # type: ignore[name-defined]
         self.device = sh1106(serial)  # type: ignore[name-defined]
+        self.render_throttle = LUMA_RENDER_THROTTLE
 
     async def render_frame(self, draw_fn) -> None:
         now = time.time()
-        if now - self.last_write < 0.2:
+        if now - self.last_write < self.render_throttle:
             return
         self.last_write = now
         await asyncio.to_thread(self._draw_sync, draw_fn)
