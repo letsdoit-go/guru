@@ -145,7 +145,7 @@ wheels = [
 
 [[package]]
 name = "elkpy"
-version = "1.3.0rc1"
+version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "build" },
@@ -154,9 +154,9 @@ dependencies = [
     { name = "protobuf" },
     { name = "twine" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/60/aa/f7db9611b0d507ad067de37b4b2ec66194ecfedc5f0c4f3529ed081884b6/elkpy-1.3.0rc1.tar.gz", hash = "sha256:82a8452d28c1d484b75d5236496ba83f87bc71e36262aa9f8247dc3d805fe7aa", size = 85791, upload-time = "2026-02-20T11:43:23.747Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/08/8b/126f8502c5e1da9405498940c4f6735ced78f46c0545779b6c0b9207f2ed/elkpy-1.3.0.tar.gz", hash = "sha256:d16bcfe973b0b9854de0be8bcbf87ca92557566e6c6559fe95412af405ddd040", size = 85654, upload-time = "2026-03-26T09:51:30.926Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/96/23/7a62eb022c9553c5cc6c34615c5d08d6ac59f0b9d4f33b894beec8540103/elkpy-1.3.0rc1-py3-none-any.whl", hash = "sha256:d3c29befc55fb0327b28ec4177e0fc09112c043e01aef735a8659b1785f1456f", size = 90412, upload-time = "2026-02-20T11:43:22.102Z" },
+    { url = "https://files.pythonhosted.org/packages/e3/14/1d7c3926cabdc0e907fca73632cc58d8f54ad7a3c01ff693321a3a167aee/elkpy-1.3.0-py3-none-any.whl", hash = "sha256:c86a7b3011e488bbc334524441546d52fa1a815333e6b3b9a598bc94015f9188", size = 90365, upload-time = "2026-03-26T09:51:29.608Z" },
 ]
 
 [[package]]
@@ -217,7 +217,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "elkpy", specifier = "==1.3.0rc1" },
+    { name = "elkpy", specifier = "==1.3.0" },
     { name = "grpcio" },
     { name = "pillow" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
