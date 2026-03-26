@@ -72,8 +72,8 @@ class DisplayManagerBase:
             )
         observer.subscribe(event="DrawText", cb=self.render_text)
         self.last_write = 0
-        self._init_display(chip_name)
         self.render_throttle = 0
+        self._init_display(chip_name)
 
     def _init_display(self, chip_name: str) -> None:
         pass
