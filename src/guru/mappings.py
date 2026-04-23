@@ -196,6 +196,7 @@ class MappingManager:
 
     def __init__(self) -> None:
         observer.subscribe(event="UiEvent", cb=self._dispatch_ui_event)
+        observer.subscribe(event="SushiParameterUpdate", cb=self._handle_sushi_param_update)
         observer.subscribe(event="NewControllerMap", cb=self._update_controller_map)
         observer.subscribe(event="ModeSwitch", cb=self._switch_mode)
         observer.subscribe(event="CycleMode", cb=self._cycle_mode)
@@ -247,6 +248,10 @@ class MappingManager:
 
     def _handle_mappings_initialized(self):
         self._mappings_initialized = True
+
+    async def _handle_sushi_param_update(self, notification) -> None:
+        # await observer.emit("UpdateParameter", mapping.parameter_label)
+        print(notification)
 
     def register_mappings(self, mappings: list[PluginParameterMapping]) -> bool:
         """
@@ -399,7 +404,7 @@ class MappingManager:
             case ComboMapping():
                 logger.debug("Running Combo!")
                 await self._run_combo_mapping(mapping, event, event_type)
-                await observer.emit("UpdateParameter", mapping.parameter_label)
+                # await observer.emit("UpdateParameter", mapping.parameter_label)
                 return
             case _:
                 if event_type == "analog_ev":
@@ -462,7 +467,7 @@ class MappingManager:
                 value=value,
             )
 
-        await observer.emit("UpdateParameter", mapping.parameter_label)
+        # await observer.emit("UpdateParameter", mapping.parameter_label)
 
     async def _handle_relative_event(self, event, mapping) -> None:
         """

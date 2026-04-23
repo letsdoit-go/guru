@@ -48,6 +48,7 @@ class SushiClient:
             except Exception:
                 logger.info("Sushi unavailable!")
                 return False
+        self.subscribe_to_parameter_updates()
         logger.info("Connected to Sushi")
         return True
 
