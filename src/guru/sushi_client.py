@@ -36,7 +36,7 @@ class SushiClient:
         self.sushi_address = sushi_address
         self.controller = None
 
-    async def connect(self, subscribe_to_parameter_updates: bool = True) -> bool:
+    async def connect(self, subscribe_to_parameter_updates: bool = False) -> bool:
         """Establish connection to Sushi."""
         logger.info(f"Connecting to Sushi at {self.sushi_address}")
         self.controller = sc.SushiController(self.sushi_address)
