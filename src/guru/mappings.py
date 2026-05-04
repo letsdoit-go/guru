@@ -404,7 +404,7 @@ class MappingManager:
             case ComboMapping():
                 logger.debug("Running Combo!")
                 await self._run_combo_mapping(mapping, event, event_type)
-                # await observer.emit("UpdateParameter", mapping.parameter_label)
+                await observer.emit("UpdateParameter", mapping.parameter_label)
                 return
             case _:
                 if event_type == "analog_ev":
@@ -467,7 +467,7 @@ class MappingManager:
                 value=value,
             )
 
-        # await observer.emit("UpdateParameter", mapping.parameter_label)
+        await observer.emit("UpdateParameter", mapping.parameter_label)
 
     async def _handle_relative_event(self, event, mapping) -> None:
         """
