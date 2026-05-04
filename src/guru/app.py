@@ -85,7 +85,7 @@ class GlueApp:
         for sig in (signal.SIGINT, signal.SIGTERM):
             loop.add_signal_handler(sig, signal_handler)
 
-    async def initialize(self) -> bool:
+    async def initialize(self, subscribe_to_parameter_updates: bool = False) -> bool:
         """
         Initialize connections to Sensei and Sushi. This MUST be run before any calls to
         Sensei or Sushi are made, typically directly after instantiation.
@@ -115,7 +115,7 @@ class GlueApp:
 
         # Connect to Sushi client
         self.logger.info("Initializing Sushi client")
-        if not await self.sushi_client.connect():
+        if not await self.sushi_client.connect(subscribe_to_parameter_updates=subscribe_to_parameter_updates):
             self.logger.error("Sushi does not seem to be running. Exiting now.")
             return False
 
