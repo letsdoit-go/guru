@@ -3,7 +3,6 @@ gRPC client for connecting to SenseiService and subscribing to hardware events.
 """
 
 import asyncio
-import grpc.aio
 import logging
 from pathlib import Path
 from typing import AsyncIterator
@@ -43,6 +42,7 @@ class SenseiClient:
     async def connect(self) -> None:
         """Establish connection to the gRPC server."""
         logger.info(f"Connecting to Sensei at {self.server_address}")
+        import grpc.aio
         self.channel = grpc.aio.insecure_channel(self.server_address)
         self.stub = self.sensei_rpc_pb2_grpc.SenseiControllerStub(self.channel)
         logger.info("Connected to Sensei")
