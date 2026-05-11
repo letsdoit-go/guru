@@ -106,18 +106,25 @@ class GlueApp:
                 await self.sensei_client.get_controller_map()
                 break
             except Exception:
-                self.logger.info("Sensei unavailable. Retrying in 5s...")
+                self.logger.info("Sensei unavailable. Retrying in 1s...")
                 try:
-                    await asyncio.wait_for(self._shutdown_event.wait(), timeout=5.0)
+                    await asyncio.wait_for(self._shutdown_event.wait(), timeout=1.0)
                     return False  # Shutdown requested during retry
                 except asyncio.TimeoutError:
                     pass  # Continue retry
 
         # Connect to Sushi client
         self.logger.info("Initializing Sushi client")
-        if not await self.sushi_client.connect(subscribe_to_parameter_updates=subscribe_to_parameter_updates):
-            self.logger.error("Sushi does not seem to be running. Exiting now.")
-            return False
+        while not self._shutdown_event.is_set():
+            if not await self.sushi_client.connect(subscribe_to_parameter_updates=subscribe_to_parameter_updates):
+                try:
+                    await asyncio.wait_for(self._shutdown_event.wait(), timeout=1.0)
+                    return False  # Shutdown requested during retry
+                except asyncio.TimeoutError:
+                    self.logger.debug("Retrying Sushi connection...")
+                    pass  # Continue retry
+            else:
+                break
 
         # Initialize mappings with Sushi
         if self.mappings:

@@ -34,12 +34,11 @@ class SushiClient:
         observer.subscribe("SetInitialStateOnPlugin", cb=self._set_initial_state_on_plugin)
         observer.subscribe("SetBypassStateOnPlugin", cb=self._set_bypass_state_on_plugin)
         self.sushi_address = sushi_address
-        self.controller = None
+        self.controller = sc.SushiController(self.sushi_address)
 
     async def connect(self, subscribe_to_parameter_updates: bool = False) -> bool:
         """Establish connection to Sushi."""
         logger.info(f"Connecting to Sushi at {self.sushi_address}")
-        self.controller = sc.SushiController(self.sushi_address)
         version = ""
         while version == "":
             assert self.controller is not None
