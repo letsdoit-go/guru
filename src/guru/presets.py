@@ -140,7 +140,7 @@ class PresetManager:
         old_preset_name = self.get_current_preset_name()
 
         try:
-            self._logger.info(f"Loading preset '{preset.name}' (index {index})")
+            self._logger.debug("Loading preset %s %s", preset.name, index)
 
             # Set plugin bypass states
             await self._apply_initial_state(preset)
@@ -149,9 +149,8 @@ class PresetManager:
             old_index = self.current_preset_index
             self.current_preset_index = index
 
-            self._logger.info(
-                f"Successfully loaded preset '{preset.name}' "
-                f"(switched from '{old_preset_name}' at index {old_index})"
+            self._logger.debug(
+                "Successfully loaded preset '%s' (switched from '%s' at index %s)", preset.name, old_preset_name, old_index
             )
             await observer.emit("DrawText", f"Preset {preset.name} loaded successfully")
             return True

@@ -45,17 +45,17 @@ class SushiClient:
             try:
                 version = self.controller.system.get_sushi_version()
             except Exception:
-                logger.info("Sushi unavailable!")
+                logger.debug("Sushi unavailable!")
                 return False
         if subscribe_to_parameter_updates:
             self.subscribe_to_parameter_updates()
-        logger.info("Connected to Sushi")
+        logger.debug("Connected to Sushi")
         return True
 
     def disconnect(self) -> None:
         """Close the connection to Sushi."""
         if self.controller:
-            logger.info("Disconnecting from Sushi")
+            logger.debug("Disconnecting from Sushi")
             self.controller = None
 
     def subscribe_to_parameter_updates(self):
@@ -75,8 +75,8 @@ class SushiClient:
             event["plugin_id"], event["param_id"], event["value"]
         )
         logger.debug(
-            f"Set parameter: track={event['track_id']}, processor={event['plugin_id']}, "
-            f"param={event['param_id']}, value={event['value']}"
+            "Set parameter: track=%s, processor=%s, "
+            "param=%s, value=%s", event['track_id'], event['plugin_id'], event['param_id'], event['value']
         )
 
     async def _handle_sushi_track_event(self, event: dict) -> None:
@@ -87,8 +87,8 @@ class SushiClient:
             event["track_id"], event["param_id"], event["value"]
         )
         logger.debug(
-            f"Set parameter: track={event['track_id']}, "
-            f"param={event['param_id']}, value={event['value']}"
+            "Set parameter: track=%s, "
+            "param=%s, value=%s", event['track_id'], event['param_id'], event['value']
         )
 
     async def _handle_plugin_bypass_event(self, event: dict) -> None:
@@ -120,7 +120,7 @@ class SushiClient:
             raise RuntimeError("Not connected to Sushi. Call connect() first.")
 
         await preset.init(self.controller)
-        logger.info(f"Initialized preset {preset}")
+        logger.debug("Initialized preset %s", preset)
 
     async def _initialize_mappings(self, mappings: list) -> None:
         """
@@ -137,11 +137,11 @@ class SushiClient:
         if not self.controller:
             raise RuntimeError("Not connected to Sushi. Call connect() first.")
 
-        logger.info(f"Initializing {len(mappings)} mappings")
+        logger.debug("Initializing %s mappings", len(mappings))
         for i, mapping in enumerate(mappings):
             try:
                 await mapping.init(self.controller)
-                logger.info(
+                logger.debug(
                     f"Mapping {i + 1}: {mapping.controller_name} -> "
                     f"{getattr(mapping, 'track_name', '')}/{getattr(mapping, 'plugin_name', '-')}/{getattr(mapping, 'parameter_name', 'BYPASS')}"
                 )
@@ -176,6 +176,6 @@ class SushiClient:
             processor_id, parameter_id, value
         )
         logger.debug(
-            f"Set parameter: track={track_id}, processor={processor_id}, "
-            f"param={parameter_id}, value={value}"
+            "Set parameter: track=%s, processor=%s, "
+            "param=%s, value=%s", track_id, processor_id, parameter_id, value
         )

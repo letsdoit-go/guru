@@ -231,7 +231,7 @@ class MappingManager:
 
     def _cycle_mode(self) -> None:
         self._mode = (self._mode + 1) % len(self.mappings_by_controller_id)
-        logger.info(f"Cycled mode to mode {self._mode}")
+        logger.debug("Cycled mode to mode %s", self._mode)
 
     def _switch_mode(self, new_mode: int) -> None:
         if new_mode > len(self.mappings_by_controller_id) - 1:
@@ -282,7 +282,7 @@ class MappingManager:
                     mapping, self.mappings_by_controller_id[mode]
                 )
 
-        logger.info("all mappings registered successfully")
+        logger.debug("all mappings registered successfully")
         return True
 
     def _register_single_mapping(
@@ -315,19 +315,19 @@ class MappingManager:
 
         match mapping:
             case MultiSwitch():
-                logger.info(
+                logger.debug(
                     f"Registered: controllers {', '.join(name for name in mapping.controller_names)} -> mapping = {mapping.mapping}"
                 )
             case Control():
-                logger.info(
+                logger.debug(
                     f"Registered: controller '{mapping.controller_name}' -> control -> cb = {mapping.callback}"
                 )
             case ComboMapping():
-                logger.info(
+                logger.debug(
                     f"Registered: controller '{mapping.controller_name}' (ID {controller_id}) -> ComboMapping: {mapping.mappings}"
                 )
             case _:
-                logger.info(
+                logger.debug(
                     f"Registered: controller '{mapping.controller_name}' (ID {controller_id}) -> "
                     f"{getattr(mapping, 'track_name', '')}/{getattr(mapping, 'plugin_name', '-')}/{getattr(mapping, 'parameter_name', 'BYPASS')}"
                 )
@@ -391,7 +391,7 @@ class MappingManager:
 
     async def run_mapping(self, mapping, event, event_type) -> None:
         if not mapping:
-            logger.debug(f"no mapping for controller id {event.controller_id}")
+            logger.debug("No mapping for controller id %s", event.controller_id)
             return
 
         match mapping:
@@ -442,14 +442,14 @@ class MappingManager:
 
         await self._create_sushi_event(event, mapping, value)
 
-        logger.debug(f"toggle event: controller={event.controller_id}, pressed={value}")
+        logger.debug("Toggle event: controller=%s, pressed=%s", event.controller_id, value)
 
     async def _create_sushi_event(self, event, mapping, value) -> None:
         # apply preprocessor if defined
         if mapping.preprocessor:
             value = mapping.preprocessor(value)
 
-        logger.debug(f"analog event: controller={event.controller_id}, value={value}")
+        logger.debug("Analog event: controller=%s, value=%s", event.controller_id, value)
 
         # mapping.value = value
 
@@ -479,7 +479,7 @@ class MappingManager:
         - clamp values to parameter ranges
         """
         logger.debug(
-            f"Relative event: controller={event.controller_id}, New value={mapping.value}"
+            "Relative event: controller=%s, New value=%s", event.controller_id, mapping.value
         )
         await self._create_sushi_event(event, mapping, mapping.value)
 
@@ -503,14 +503,14 @@ class MappingManager:
             value=value,
         )
 
-        logger.debug(f"Range event: controller={event.controller_id}, Range={value}")
+        logger.debug("Range event: controller=%s, Range=%s", event.controller_id, value)
 
     async def _handle_control_event(self, mapping, event) -> None:
-        logger.debug(f"Received control event: {event} -> cb: {mapping.callback}")
+        logger.debug("Received control event: %s -> cb: %s", event, mapping.callback)
         await mapping.callback(self._get_value_from_event(event))
 
     async def _handle_bypass_event(self, mapping, event) -> None:
-        logger.debug(f"Toggling bypass state for plugin {mapping.controller_name}")
+        logger.debug("Toggling bypass state for plugin %s", mapping.controller_name)
         await self._emit_sushi_bypass_event(mapping.plugin_id)
 
     async def _emit_sushi_plugin_event(
