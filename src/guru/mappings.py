@@ -203,7 +203,7 @@ class MappingManager:
         observer.subscribe(
             event="MappingsInitialized", cb=self._handle_mappings_initialized
         )
-        self._accelerator = AcceleratedEncoder()
+        self._accelerators: dict[int, AcceleratedEncoder] = {}
         self._mappings_initialized: bool = False
         self.mappings_by_controller_id: list[
             dict[
@@ -383,7 +383,10 @@ class MappingManager:
                 event.controller_id
             )
             if event_type == "relative_ev" and hasattr(mapping, "value"):
-                mapping.value = self._accelerator.tick(
+                if event.controller_id not in self._accelerators:
+                    self._accelerators[event.controller_id] = AcceleratedEncoder()
+
+                mapping.value = self._accelerators[event.controller_id].tick(
                     event.relative_ev.value, mapping.value
                 )
 
