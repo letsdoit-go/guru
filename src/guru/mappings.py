@@ -240,7 +240,7 @@ class MappingManager:
             )
             return
         self._mode = new_mode
-        logger.info(f"Switched mode to mode {self._mode}")
+        logger.debug("Switched mode to mode %s", self._mode)
 
     def _update_controller_map(self, controller_map):
         self.controller_map = controller_map

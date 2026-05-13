@@ -7,6 +7,7 @@ from . import observer
 from elkpy import async_sushicontroller as sc
 from elkpy import sushierrors
 from .presets import Preset
+import asyncio
 
 
 logger = logging.getLogger('SUSHI')
@@ -31,8 +32,7 @@ class SushiClient:
         observer.subscribe("PluginBypassEvent", cb=self._handle_plugin_bypass_event)
         observer.subscribe("InitMapping", cb=self._initialize_mappings)
         observer.subscribe("InitPreset", cb=self._initialize_preset)
-        observer.subscribe("SetInitialStateOnPlugin", cb=self._set_initial_state_on_plugin)
-        observer.subscribe("SetBypassStateOnPlugin", cb=self._set_bypass_state_on_plugin)
+        observer.subscribe("ApplyPresetState", cb=self.apply_preset_state)
         self.sushi_address = sushi_address
         self.controller = sc.SushiController(self.sushi_address)
 
@@ -107,6 +107,17 @@ class SushiClient:
             raise RuntimeError("Not connected to Sushi. Call connect() first.")
 
         await self.controller.parameters.set_parameter_value(state[0], state[1], state[2])
+
+    async def apply_preset_state(self, preset: Preset) -> None:
+        bypass_calls = [
+            self.controller.audio_graph.set_processor_bypass_state(state[0], state[1])
+            for state in preset.bypass_states
+        ]
+        param_calls = [
+            self.controller.parameters.set_parameter_value(state[0], state[1], state[2])
+            for state in preset.parameter_states
+        ]
+        await asyncio.gather(*bypass_calls, *param_calls)
 
     async def _set_bypass_state_on_plugin(self, state: tuple) -> None:
         if not self.controller:

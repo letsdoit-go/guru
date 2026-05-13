@@ -255,10 +255,7 @@ class PresetManager:
         Args:
             preset: Preset to apply bypass states for
         """
-        for state in preset.bypass_states:
-            await observer.emit("SetBypassStateOnPlugin", state)
-        for state in preset.parameter_states:
-            await observer.emit("SetInitialStateOnPlugin", state)
+        await observer.emit("ApplyPresetState", preset)
 
     def clear_presets(self) -> None:
         """Clear all presets from the manager."""

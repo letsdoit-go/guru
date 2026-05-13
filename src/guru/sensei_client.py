@@ -33,6 +33,7 @@ class SenseiClient:
         self.stub = None
         self._streaming = False
         self._timeout_task: asyncio.Task | None = None
+        self._last_event_time: float = 0.0
 
         self.sensei_rpc_pb2, self.sensei_rpc_pb2_grpc = grpc_gen.modules_from_proto(str(sensei_proto))
 
@@ -63,6 +64,18 @@ class SenseiClient:
         except asyncio.CancelledError:
             return
 
+    async def _idle_watcher(self) -> None:
+        loop = asyncio.get_running_loop()
+        while self._streaming:
+            elapsed = loop.time() - self._last_event_time
+            remaining = IDLING_TIMEOUT_S - elapsed
+            if remaining <= 0:
+                await observer.emit("Idle")
+                self._last_event_time = loop.time()
+                await asyncio.sleep(IDLING_TIMEOUT_S)
+            else:
+                await asyncio.sleep(remaining)
+
     async def stream_events(self) -> None:
         """
         Main TaskGroup task - streams events and emits via observer.
@@ -72,6 +85,9 @@ class SenseiClient:
             if not self._streaming:
                 logger.debug("Event stream not starting - _streaming is False")
                 return
+            loop = asyncio.get_running_loop()
+            self._last_event_time = loop.time()
+            asyncio.create_task(self._idle_watcher())
 
             logger.info("Starting event stream, subscribing to all events")
             async for event in self.subscribe_to_events():
@@ -81,12 +97,8 @@ class SenseiClient:
                 # Emit event to observer
                 logger.debug("Received Sensei event: %s", event)
                 await observer.emit("UiEvent", event)
+                self._last_event_time = loop.time()
                 
-                # Reset the idling timeout
-                if self._timeout_task:
-                    self._timeout_task.cancel()
-                self._timeout_task = asyncio.create_task(self._is_idling())
-
         except Exception as e:
             # Check if it's a gRPC error
             if hasattr(e, '__class__') and 'AioRpcError' in e.__class__.__name__:
