@@ -31,12 +31,12 @@ class Preset:
         self.mode = mode
         self.label = label if label else name
 
-    def init(self, sc: SushiController) -> None:
+    async def init(self, sc: SushiController) -> None:
         for state in self.initial_state:
-            proc_id = sc.audio_graph.get_processor_id(state["processor"])
+            proc_id = await sc.audio_graph.get_processor_id(state["processor"])
             if "parameters" in state.keys():
                 for param_name, value in state["parameters"].items():
-                    param_id = sc.parameters.get_parameter_id(proc_id, param_name)
+                    param_id = await sc.parameters.get_parameter_id(proc_id, param_name)
                     self.parameter_states.append((proc_id, param_id, value))
             if "bypassed" in state.keys():
                 self.bypass_states.append((proc_id, state["bypassed"]))

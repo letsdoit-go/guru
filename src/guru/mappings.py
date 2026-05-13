@@ -26,7 +26,7 @@ class Control:
     def __repr__(self) -> str:
         return f"Control mapping on {self.controller_name} -> cb: {self.callback}"
 
-    def init(self, sc) -> None: ...
+    async def init(self, sc) -> None: ...
 
 
 class MultiSwitch:
@@ -37,8 +37,8 @@ class MultiSwitch:
         self.controller_name = controller_names
         self.mapping = mapping
 
-    def init(self, sc) -> None:
-        self.mapping.init(sc)
+    async def init(self, sc) -> None:
+        await self.mapping.init(sc)
 
 
 class TrackParameterMapping:
@@ -58,12 +58,12 @@ class TrackParameterMapping:
         self.preprocessor = preprocessor
         self.parameter_label = parameter_label if parameter_label else parameter_name
 
-    def init(self, sc: SushiController) -> None:
-        self.track_id = sc.audio_graph.get_track_id(self.track_name)
-        self.param_id = sc.parameters.get_parameter_id(
+    async def init(self, sc: SushiController) -> None:
+        self.track_id = await sc.audio_graph.get_track_id(self.track_name)
+        self.param_id = await sc.parameters.get_parameter_id(
             self.track_id, self.parameter_name
         )
-        self.value = sc.parameters.get_parameter_value(self.track_id, self.param_id)
+        self.value = await sc.parameters.get_parameter_value(self.track_id, self.param_id)
 
     def __repr__(self) -> str:
         return f"TrackParameterMapping: track={self.track_name}, parameter={self.parameter_name}{f', controller={self.controller_name}' if self.controller_name else ''}"
@@ -88,13 +88,13 @@ class PluginParameterMapping:
         self.preprocessor = preprocessor
         self.parameter_label = parameter_label if parameter_label else parameter_name
 
-    def init(self, sc: SushiController) -> None:
-        self.track_id = sc.audio_graph.get_track_id(self.track_name)
-        self.plugin_id = sc.audio_graph.get_processor_id(self.plugin_name)
-        self.param_id = sc.parameters.get_parameter_id(
+    async def init(self, sc: SushiController) -> None:
+        self.track_id = await sc.audio_graph.get_track_id(self.track_name)
+        self.plugin_id = await sc.audio_graph.get_processor_id(self.plugin_name)
+        self.param_id = await sc.parameters.get_parameter_id(
             self.plugin_id, self.parameter_name
         )
-        self.value = sc.parameters.get_parameter_value(self.plugin_id, self.param_id)
+        self.value = await sc.parameters.get_parameter_value(self.plugin_id, self.param_id)
 
     def __repr__(self) -> str:
         return f"PluginParameterMapping: plugin={self.plugin_name}, parameter={self.parameter_name}{f', controller={self.controller_name}' if self.controller_name else ''}, value={self.value}"
@@ -131,8 +131,8 @@ class BypassMapping(PluginParameterMapping):
         self.controller_name = controller_name
         self.preprocessor = preprocessor
 
-    def init(self, sc: SushiController) -> None:
-        self.plugin_id = sc.audio_graph.get_processor_id(self.plugin_name)
+    async def init(self, sc: SushiController) -> None:
+        self.plugin_id = await sc.audio_graph.get_processor_id(self.plugin_name)
 
     def __repr__(self) -> str:
         return f"BypassMapping: plugin={self.plugin_name},{f', controller={self.controller_name}' if self.controller_name else ''}"
@@ -156,9 +156,9 @@ class ComboMapping:
     def __repr__(self) -> str:
         return f"ComboMapping - [{self.mappings}]"
 
-    def init(self, sc: SushiController) -> None:
+    async def init(self, sc: SushiController) -> None:
         for m in self.mappings:
-            m.init(sc)
+            await m.init(sc)
 
 
 class AcceleratedEncoder:
