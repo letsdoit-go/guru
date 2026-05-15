@@ -41,8 +41,8 @@ class Preset:
             if "bypassed" in state.keys():
                 self.bypass_states.append((proc_id, state["bypassed"]))
 
-    def __repr__(self) -> str:
-        return f"{self.name}: {self.initial_state} => {'Initialized' if self.parameter_states else 'Not Initialized'}"
+    # def __repr__(self) -> str:
+    #     return f"{self.name}: {self.initial_state} => {'Initialized' if self.parameter_states else 'Not Initialized'}"
 
 
 class PresetManager:
@@ -121,7 +121,12 @@ class PresetManager:
         p1 = old_preset.initial_state
         p2 = new_preset.initial_state
         filtered_state = [d for d in p2 if d not in p1]
-        return Preset(name=new_preset.name, initial_state=filtered_state, mode=new_preset.mode)
+        filtered_bypass_states = [d for d in new_preset.bypass_states if d not in old_preset.bypass_states]
+        filtered_parameter_states = [d for d in new_preset.parameter_states if d not in old_preset.parameter_states]
+        filtered_preset = Preset(name=new_preset.name, initial_state=filtered_state, mode=new_preset.mode)
+        filtered_preset.bypass_states = filtered_bypass_states
+        filtered_preset.parameter_states = filtered_parameter_states
+        return filtered_preset
 
 
     async def load_preset_by_name(self, name: str) -> bool:

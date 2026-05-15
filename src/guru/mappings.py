@@ -24,7 +24,7 @@ class Control:
         self.callback = cb
 
     def __repr__(self) -> str:
-        return f"Control mapping on {self.controller_name} -> cb: {self.callback}"
+        return "Control mapping on %s -> cb: %s" % (self.controller_name, self.callback)
 
     async def init(self, sc) -> None: ...
 
@@ -65,8 +65,8 @@ class TrackParameterMapping:
         )
         self.value = await sc.parameters.get_parameter_value(self.track_id, self.param_id)
 
-    def __repr__(self) -> str:
-        return f"TrackParameterMapping: track={self.track_name}, parameter={self.parameter_name}{f', controller={self.controller_name}' if self.controller_name else ''}"
+    # def __repr__(self) -> str:
+    #     return f"TrackParameterMapping: track={self.track_name}, parameter={self.parameter_name}{f', controller={self.controller_name}' if self.controller_name else ''}" % (self.track_name, self.parameter_name, self.controller_name^)
 
 
 class PluginParameterMapping:
