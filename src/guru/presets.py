@@ -30,6 +30,7 @@ class Preset:
         self.bypass_states: list = []
         self.mode = mode
         self.label = label if label else name
+        self._is_initialized: bool = False
 
     async def init(self, sc: SushiController) -> None:
         for state in self.initial_state:
@@ -40,9 +41,11 @@ class Preset:
                     self.parameter_states.append((proc_id, param_id, value))
             if "bypassed" in state.keys():
                 self.bypass_states.append((proc_id, state["bypassed"]))
+        self._is_initialized = True
 
-    # def __repr__(self) -> str:
-    #     return f"{self.name}: {self.initial_state} => {'Initialized' if self.parameter_states else 'Not Initialized'}"
+    def __repr__(self) -> str:
+        initialized_str = 'Initialized' if self._is_initialized else 'Not initialized yet.'
+        return "%s: %s => %s" % (self.name, self.initial_state, self._is_initialized)        
 
 
 class PresetManager:

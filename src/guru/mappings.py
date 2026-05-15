@@ -65,8 +65,8 @@ class TrackParameterMapping:
         )
         self.value = await sc.parameters.get_parameter_value(self.track_id, self.param_id)
 
-    # def __repr__(self) -> str:
-    #     return f"TrackParameterMapping: track={self.track_name}, parameter={self.parameter_name}{f', controller={self.controller_name}' if self.controller_name else ''}" % (self.track_name, self.parameter_name, self.controller_name^)
+    def __repr__(self) -> str:
+        return "TrackParameterMapping: track=%s, parameter=%s, controller_name=%s" % (self.track_name, self.parameter_name, self.controller_name)
 
 
 class PluginParameterMapping:
@@ -97,7 +97,7 @@ class PluginParameterMapping:
         self.value = await sc.parameters.get_parameter_value(self.plugin_id, self.param_id)
 
     def __repr__(self) -> str:
-        return "PluginParameterMapping: plugin={self.plugin_name}, parameter={self.parameter_name}{f', controller={self.controller_name}' if self.controller_name else ''}"
+        return "PluginParameterMapping: plugin=%s, parameter=%s, controller_name=%s" % (self.plugin_name, self.parameter_name, self.controller_name)
 
 
 class SwitchMapping(PluginParameterMapping):
@@ -135,7 +135,7 @@ class BypassMapping(PluginParameterMapping):
         self.plugin_id = await sc.audio_graph.get_processor_id(self.plugin_name)
 
     def __repr__(self) -> str:
-        return f"BypassMapping: plugin={self.plugin_name},{f', controller={self.controller_name}' if self.controller_name else ''}"
+        return "BypassMapping: plugin=%s, controller=%s}" % (self.plugin_name, self.controller_name)
 
 
 class ComboMapping:
@@ -154,7 +154,7 @@ class ComboMapping:
         self.value = initial_value
 
     def __repr__(self) -> str:
-        return f"ComboMapping - [{self.mappings}]"
+        return "ComboMapping - %s" % self.mappings
 
     async def init(self, sc: SushiController) -> None:
         for m in self.mappings:
