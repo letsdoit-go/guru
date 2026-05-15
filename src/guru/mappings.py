@@ -97,7 +97,7 @@ class PluginParameterMapping:
         self.value = await sc.parameters.get_parameter_value(self.plugin_id, self.param_id)
 
     def __repr__(self) -> str:
-        return f"PluginParameterMapping: plugin={self.plugin_name}, parameter={self.parameter_name}{f', controller={self.controller_name}' if self.controller_name else ''}, value={self.value}"
+        return "PluginParameterMapping: plugin={self.plugin_name}, parameter={self.parameter_name}{f', controller={self.controller_name}' if self.controller_name else ''}"
 
 
 class SwitchMapping(PluginParameterMapping):
