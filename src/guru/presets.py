@@ -116,6 +116,14 @@ class PresetManager:
             self._logger.warning(f"Invalid preset index: {index}")
             return False
 
+    def build_preset_diff(self, old_preset: Preset, new_preset: Preset) -> Preset:
+        """Builds a new Preset with only the diff between 2 other presets"""
+        p1 = old_preset.initial_state
+        p2 = new_preset.initial_state
+        filtered_state = [d for d in p2 if d not in p1]
+        return Preset(name=new_preset.name, initial_state=filtered_state, mode=new_preset.mode)
+
+
     async def load_preset_by_name(self, name: str) -> bool:
         return await self.load_preset(
             self.preset_list.index(next(preset for preset in self.preset_list if preset.name == name))
@@ -137,20 +145,22 @@ class PresetManager:
 
         self._last_preset_loading = time.time()
         preset = self.preset_list[index]
-        old_preset_name = self.get_current_preset_name()
+        current_preset = self.get_current_preset()
+
+        filtered_preset = self.build_preset_diff(current_preset, preset)
 
         try:
             self._logger.debug("Loading preset %s %s", preset.name, index)
 
             # Set plugin bypass states
-            await self._apply_initial_state(preset)
+            await self._apply_initial_state(filtered_preset)
 
             # Update current preset index
             old_index = self.current_preset_index
             self.current_preset_index = index
 
             self._logger.debug(
-                "Successfully loaded preset '%s' (switched from '%s' at index %s)", preset.name, old_preset_name, old_index
+                "Successfully loaded preset '%s' (switched from '%s' at index %s)", preset.name, current_preset.name, old_index
             )
             await observer.emit("DrawText", f"Preset {preset.name} loaded successfully")
             return True
