@@ -30,19 +30,22 @@ class Preset:
         self.bypass_states: list = []
         self.mode = mode
         self.label = label if label else name
+        self._is_initialized: bool = False
 
-    def init(self, sc: SushiController) -> None:
+    async def init(self, sc: SushiController) -> None:
         for state in self.initial_state:
-            proc_id = sc.audio_graph.get_processor_id(state["processor"])
+            proc_id = await sc.audio_graph.get_processor_id(state["processor"])
             if "parameters" in state.keys():
                 for param_name, value in state["parameters"].items():
-                    param_id = sc.parameters.get_parameter_id(proc_id, param_name)
+                    param_id = await sc.parameters.get_parameter_id(proc_id, param_name)
                     self.parameter_states.append((proc_id, param_id, value))
             if "bypassed" in state.keys():
                 self.bypass_states.append((proc_id, state["bypassed"]))
+        self._is_initialized = True
 
     def __repr__(self) -> str:
-        return f"{self.name}: {self.initial_state} => {'Initialized' if self.parameter_states else 'Not Initialized'}"
+        initialized_str = 'Initialized' if self._is_initialized else 'Not initialized yet.'
+        return "%s: %s => %s" % (self.name, self.initial_state, self._is_initialized)        
 
 
 class PresetManager:
@@ -116,6 +119,19 @@ class PresetManager:
             self._logger.warning(f"Invalid preset index: {index}")
             return False
 
+    def build_preset_diff(self, old_preset: Preset, new_preset: Preset) -> Preset:
+        """Builds a new Preset with only the diff between 2 other presets"""
+        p1 = old_preset.initial_state
+        p2 = new_preset.initial_state
+        filtered_state = [d for d in p2 if d not in p1]
+        filtered_bypass_states = [d for d in new_preset.bypass_states if d not in old_preset.bypass_states]
+        filtered_parameter_states = [d for d in new_preset.parameter_states if d not in old_preset.parameter_states]
+        filtered_preset = Preset(name=new_preset.name, initial_state=filtered_state, mode=new_preset.mode)
+        filtered_preset.bypass_states = filtered_bypass_states
+        filtered_preset.parameter_states = filtered_parameter_states
+        return filtered_preset
+
+
     async def load_preset_by_name(self, name: str) -> bool:
         return await self.load_preset(
             self.preset_list.index(next(preset for preset in self.preset_list if preset.name == name))
@@ -137,21 +153,22 @@ class PresetManager:
 
         self._last_preset_loading = time.time()
         preset = self.preset_list[index]
-        old_preset_name = self.get_current_preset_name()
+        current_preset = self.get_current_preset()
+
+        filtered_preset = self.build_preset_diff(current_preset, preset)
 
         try:
-            self._logger.info(f"Loading preset '{preset.name}' (index {index})")
+            self._logger.debug("Loading preset %s %s", preset.name, index)
 
             # Set plugin bypass states
-            await self._apply_initial_state(preset)
+            await self._apply_initial_state(filtered_preset)
 
             # Update current preset index
             old_index = self.current_preset_index
             self.current_preset_index = index
 
-            self._logger.info(
-                f"Successfully loaded preset '{preset.name}' "
-                f"(switched from '{old_preset_name}' at index {old_index})"
+            self._logger.debug(
+                "Successfully loaded preset '%s' (switched from '%s' at index %s)", preset.name, current_preset.name, old_index
             )
             await observer.emit("DrawText", f"Preset {preset.name} loaded successfully")
             return True
@@ -256,10 +273,7 @@ class PresetManager:
         Args:
             preset: Preset to apply bypass states for
         """
-        for state in preset.bypass_states:
-            await observer.emit("SetBypassStateOnPlugin", state)
-        for state in preset.parameter_states:
-            await observer.emit("SetInitialStateOnPlugin", state)
+        await observer.emit("ApplyPresetState", preset)
 
     def clear_presets(self) -> None:
         """Clear all presets from the manager."""

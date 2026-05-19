@@ -24,9 +24,9 @@ class Control:
         self.callback = cb
 
     def __repr__(self) -> str:
-        return f"Control mapping on {self.controller_name} -> cb: {self.callback}"
+        return "Control mapping on %s -> cb: %s" % (self.controller_name, self.callback)
 
-    def init(self, sc) -> None: ...
+    async def init(self, sc) -> None: ...
 
 
 class MultiSwitch:
@@ -37,8 +37,8 @@ class MultiSwitch:
         self.controller_name = controller_names
         self.mapping = mapping
 
-    def init(self, sc) -> None:
-        self.mapping.init(sc)
+    async def init(self, sc) -> None:
+        await self.mapping.init(sc)
 
 
 class TrackParameterMapping:
@@ -58,15 +58,15 @@ class TrackParameterMapping:
         self.preprocessor = preprocessor
         self.parameter_label = parameter_label if parameter_label else parameter_name
 
-    def init(self, sc: SushiController) -> None:
-        self.track_id = sc.audio_graph.get_track_id(self.track_name)
-        self.param_id = sc.parameters.get_parameter_id(
+    async def init(self, sc: SushiController) -> None:
+        self.track_id = await sc.audio_graph.get_track_id(self.track_name)
+        self.param_id = await sc.parameters.get_parameter_id(
             self.track_id, self.parameter_name
         )
-        self.value = sc.parameters.get_parameter_value(self.track_id, self.param_id)
+        self.value = await sc.parameters.get_parameter_value(self.track_id, self.param_id)
 
     def __repr__(self) -> str:
-        return f"TrackParameterMapping: track={self.track_name}, parameter={self.parameter_name}{f', controller={self.controller_name}' if self.controller_name else ''}"
+        return "TrackParameterMapping: track=%s, parameter=%s, controller_name=%s" % (self.track_name, self.parameter_name, self.controller_name)
 
 
 class PluginParameterMapping:
@@ -88,16 +88,16 @@ class PluginParameterMapping:
         self.preprocessor = preprocessor
         self.parameter_label = parameter_label if parameter_label else parameter_name
 
-    def init(self, sc: SushiController) -> None:
-        self.track_id = sc.audio_graph.get_track_id(self.track_name)
-        self.plugin_id = sc.audio_graph.get_processor_id(self.plugin_name)
-        self.param_id = sc.parameters.get_parameter_id(
+    async def init(self, sc: SushiController) -> None:
+        self.track_id = await sc.audio_graph.get_track_id(self.track_name)
+        self.plugin_id = await sc.audio_graph.get_processor_id(self.plugin_name)
+        self.param_id = await sc.parameters.get_parameter_id(
             self.plugin_id, self.parameter_name
         )
-        self.value = sc.parameters.get_parameter_value(self.plugin_id, self.param_id)
+        self.value = await sc.parameters.get_parameter_value(self.plugin_id, self.param_id)
 
     def __repr__(self) -> str:
-        return f"PluginParameterMapping: plugin={self.plugin_name}, parameter={self.parameter_name}{f', controller={self.controller_name}' if self.controller_name else ''}, value={self.value}"
+        return "PluginParameterMapping: plugin=%s, parameter=%s, controller_name=%s" % (self.plugin_name, self.parameter_name, self.controller_name)
 
 
 class SwitchMapping(PluginParameterMapping):
@@ -131,11 +131,11 @@ class BypassMapping(PluginParameterMapping):
         self.controller_name = controller_name
         self.preprocessor = preprocessor
 
-    def init(self, sc: SushiController) -> None:
-        self.plugin_id = sc.audio_graph.get_processor_id(self.plugin_name)
+    async def init(self, sc: SushiController) -> None:
+        self.plugin_id = await sc.audio_graph.get_processor_id(self.plugin_name)
 
     def __repr__(self) -> str:
-        return f"BypassMapping: plugin={self.plugin_name},{f', controller={self.controller_name}' if self.controller_name else ''}"
+        return "BypassMapping: plugin=%s, controller=%s}" % (self.plugin_name, self.controller_name)
 
 
 class ComboMapping:
@@ -154,11 +154,11 @@ class ComboMapping:
         self.value = initial_value
 
     def __repr__(self) -> str:
-        return f"ComboMapping - [{self.mappings}]"
+        return "ComboMapping - %s" % self.mappings
 
-    def init(self, sc: SushiController) -> None:
+    async def init(self, sc: SushiController) -> None:
         for m in self.mappings:
-            m.init(sc)
+            await m.init(sc)
 
 
 class AcceleratedEncoder:
@@ -203,7 +203,7 @@ class MappingManager:
         observer.subscribe(
             event="MappingsInitialized", cb=self._handle_mappings_initialized
         )
-        self._accelerator = AcceleratedEncoder()
+        self._accelerators: dict[int, AcceleratedEncoder] = {}
         self._mappings_initialized: bool = False
         self.mappings_by_controller_id: list[
             dict[
@@ -231,7 +231,7 @@ class MappingManager:
 
     def _cycle_mode(self) -> None:
         self._mode = (self._mode + 1) % len(self.mappings_by_controller_id)
-        logger.info(f"Cycled mode to mode {self._mode}")
+        logger.debug("Cycled mode to mode %s", self._mode)
 
     def _switch_mode(self, new_mode: int) -> None:
         if new_mode > len(self.mappings_by_controller_id) - 1:
@@ -240,7 +240,7 @@ class MappingManager:
             )
             return
         self._mode = new_mode
-        logger.info(f"Switched mode to mode {self._mode}")
+        logger.debug("Switched mode to mode %s", self._mode)
 
     def _update_controller_map(self, controller_map):
         self.controller_map = controller_map
@@ -282,7 +282,7 @@ class MappingManager:
                     mapping, self.mappings_by_controller_id[mode]
                 )
 
-        logger.info("all mappings registered successfully")
+        logger.debug("all mappings registered successfully")
         return True
 
     def _register_single_mapping(
@@ -315,19 +315,19 @@ class MappingManager:
 
         match mapping:
             case MultiSwitch():
-                logger.info(
+                logger.debug(
                     f"Registered: controllers {', '.join(name for name in mapping.controller_names)} -> mapping = {mapping.mapping}"
                 )
             case Control():
-                logger.info(
+                logger.debug(
                     f"Registered: controller '{mapping.controller_name}' -> control -> cb = {mapping.callback}"
                 )
             case ComboMapping():
-                logger.info(
+                logger.debug(
                     f"Registered: controller '{mapping.controller_name}' (ID {controller_id}) -> ComboMapping: {mapping.mappings}"
                 )
             case _:
-                logger.info(
+                logger.debug(
                     f"Registered: controller '{mapping.controller_name}' (ID {controller_id}) -> "
                     f"{getattr(mapping, 'track_name', '')}/{getattr(mapping, 'plugin_name', '-')}/{getattr(mapping, 'parameter_name', 'BYPASS')}"
                 )
@@ -383,7 +383,10 @@ class MappingManager:
                 event.controller_id
             )
             if event_type == "relative_ev" and hasattr(mapping, "value"):
-                mapping.value = self._accelerator.tick(
+                if event.controller_id not in self._accelerators:
+                    self._accelerators[event.controller_id] = AcceleratedEncoder()
+
+                mapping.value = self._accelerators[event.controller_id].tick(
                     event.relative_ev.value, mapping.value
                 )
 
@@ -391,7 +394,7 @@ class MappingManager:
 
     async def run_mapping(self, mapping, event, event_type) -> None:
         if not mapping:
-            logger.debug(f"no mapping for controller id {event.controller_id}")
+            logger.debug("No mapping for controller id %s", event.controller_id)
             return
 
         match mapping:
@@ -442,14 +445,14 @@ class MappingManager:
 
         await self._create_sushi_event(event, mapping, value)
 
-        logger.debug(f"toggle event: controller={event.controller_id}, pressed={value}")
+        logger.debug("Toggle event: controller=%s, pressed=%s", event.controller_id, value)
 
     async def _create_sushi_event(self, event, mapping, value) -> None:
         # apply preprocessor if defined
         if mapping.preprocessor:
             value = mapping.preprocessor(value)
 
-        logger.debug(f"analog event: controller={event.controller_id}, value={value}")
+        logger.debug("Analog event: controller=%s, value=%s", event.controller_id, value)
 
         # mapping.value = value
 
@@ -479,7 +482,7 @@ class MappingManager:
         - clamp values to parameter ranges
         """
         logger.debug(
-            f"Relative event: controller={event.controller_id}, New value={mapping.value}"
+            "Relative event: controller=%s, New value=%s", event.controller_id, mapping.value
         )
         await self._create_sushi_event(event, mapping, mapping.value)
 
@@ -503,14 +506,14 @@ class MappingManager:
             value=value,
         )
 
-        logger.debug(f"Range event: controller={event.controller_id}, Range={value}")
+        logger.debug("Range event: controller=%s, Range=%s", event.controller_id, value)
 
     async def _handle_control_event(self, mapping, event) -> None:
-        logger.debug(f"Received control event: {event} -> cb: {mapping.callback}")
+        logger.debug("Received control event: %s -> cb: %s", event, mapping.callback)
         await mapping.callback(self._get_value_from_event(event))
 
     async def _handle_bypass_event(self, mapping, event) -> None:
-        logger.debug(f"Toggling bypass state for plugin {mapping.controller_name}")
+        logger.debug("Toggling bypass state for plugin %s", mapping.controller_name)
         await self._emit_sushi_bypass_event(mapping.plugin_id)
 
     async def _emit_sushi_plugin_event(

@@ -106,7 +106,7 @@ class GlueApp:
                 await self.sensei_client.get_controller_map()
                 break
             except Exception:
-                self.logger.info("Sensei unavailable. Retrying in 1s...")
+                self.logger.debug("Sensei unavailable. Retrying in 1s...")
                 try:
                     await asyncio.wait_for(self._shutdown_event.wait(), timeout=1.0)
                     return False  # Shutdown requested during retry
@@ -166,14 +166,14 @@ class GlueApp:
     async def _wait_for_shutdown(self):
         """Wait for shutdown signal."""
         await self._shutdown_event.wait()
-        self.logger.info("Shutdown event triggered")
+        self.logger.debug("Shutdown event triggered")
         raise ShutdownSignalException
 
     async def stop(self) -> None:
         """Cleanup connections."""
-        self.logger.info("Cleaning up connections")
+        self.logger.debug("Cleaning up connections")
         if self.sensei_client:
             await self.sensei_client.disconnect()
         if self.sushi_client:
             self.sushi_client.disconnect()
-        self.logger.info("Shutdown complete")
+        self.logger.debug("Shutdown complete")

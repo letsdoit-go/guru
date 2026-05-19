@@ -33,6 +33,7 @@ class SenseiClient:
         self.stub = None
         self._streaming = False
         self._timeout_task: asyncio.Task | None = None
+        self._last_event_time: float = 0.0
 
         self.sensei_rpc_pb2, self.sensei_rpc_pb2_grpc = grpc_gen.modules_from_proto(str(sensei_proto))
 
@@ -41,16 +42,16 @@ class SenseiClient:
 
     async def connect(self) -> None:
         """Establish connection to the gRPC server."""
-        logger.info(f"Connecting to Sensei at {self.server_address}")
+        logger.debug("Connecting to Sensei at %s", self.server_address)
         import grpc.aio
         self.channel = grpc.aio.insecure_channel(self.server_address)
         self.stub = self.sensei_rpc_pb2_grpc.SenseiControllerStub(self.channel)
-        logger.info("Connected to Sensei")
+        logger.debug("Connected to Sensei")
 
     async def disconnect(self) -> None:
         """Close the gRPC connection."""
         if self.channel:
-            logger.info("Disconnecting from Sensei")
+            logger.debug("Disconnecting from Sensei")
             self._streaming = False
             await self.channel.close()
             self.channel = None
@@ -63,6 +64,18 @@ class SenseiClient:
         except asyncio.CancelledError:
             return
 
+    async def _idle_watcher(self) -> None:
+        loop = asyncio.get_running_loop()
+        while self._streaming:
+            elapsed = loop.time() - self._last_event_time
+            remaining = IDLING_TIMEOUT_S - elapsed
+            if remaining <= 0:
+                await observer.emit("Idle")
+                self._last_event_time = loop.time()
+                await asyncio.sleep(IDLING_TIMEOUT_S)
+            else:
+                await asyncio.sleep(remaining)
+
     async def stream_events(self) -> None:
         """
         Main TaskGroup task - streams events and emits via observer.
@@ -70,23 +83,22 @@ class SenseiClient:
         """
         try:
             if not self._streaming:
-                logger.info("Event stream not starting - _streaming is False")
+                logger.debug("Event stream not starting - _streaming is False")
                 return
+            loop = asyncio.get_running_loop()
+            self._last_event_time = loop.time()
+            asyncio.create_task(self._idle_watcher())
 
             logger.info("Starting event stream, subscribing to all events")
             async for event in self.subscribe_to_events():
                 if not self._streaming:
-                    logger.info("Event stream stopping (streaming flag is False)")
+                    logger.debug("Event stream stopping (streaming flag is False)")
                     break
                 # Emit event to observer
-                logger.debug(f"Received Sensei event: {event}")
+                logger.debug("Received Sensei event: %s", event)
                 await observer.emit("UiEvent", event)
+                self._last_event_time = loop.time()
                 
-                # Reset the idling timeout
-                if self._timeout_task:
-                    self._timeout_task.cancel()
-                self._timeout_task = asyncio.create_task(self._is_idling())
-
         except Exception as e:
             # Check if it's a gRPC error
             if hasattr(e, '__class__') and 'AioRpcError' in e.__class__.__name__:
@@ -94,7 +106,7 @@ class SenseiClient:
             else:
                 logger.error(f"Unexpected error in event stream: {e}", exc_info=True)
         finally:
-            logger.info("Event stream ended")
+            logger.debug("Event stream ended")
 
     async def refresh_all_states(self) -> None:
         """
@@ -106,7 +118,7 @@ class SenseiClient:
         if not self.stub:
             raise RuntimeError("Not connected to server. Call connect() first.")
 
-        logger.info("Requesting controller states via RefreshAllStates()")
+        logger.debug("Requesting controller states via RefreshAllStates()")
         response = await self.stub.RefreshAllStates(self.sensei_rpc_pb2.GenericVoidValue())
 
     async def get_controller_map(self) -> dict:
@@ -118,23 +130,23 @@ class SenseiClient:
 
         for pot in response.pots:
             controller_map[pot.name] = pot.id
-            logger.debug(f"Pot: {pot.name} -> ID {pot.id}")
+            logger.debug("Pot: %s -> ID %s", pot.name, pot.id)
 
         for switch in response.switches:
             controller_map[switch.name] = switch.id
-            logger.debug(f"Switch: {switch.name} -> ID {switch.id}")
+            logger.debug("Switch: %s -> ID %s", switch.name, switch.id)
 
         for encoder in response.encoders:
             controller_map[encoder.name] = encoder.id
-            logger.debug(f"Endoder: {encoder.name} -> ID {encoder.id}")
+            logger.debug("Encoder: %s -> ID %s", encoder.name, encoder.id)
 
         for rotary in response.rotaries:
             controller_map[rotary.name] = rotary.id
-            logger.debug(f"Rotary: {rotary.name} -> ID {rotary.id}")
+            logger.debug("Rotary: %s -> ID %s", rotary.name, rotary.id)
 
         for led in response.leds:
             controller_map[led.name] = led.id
-            logger.debug(f"Led: {led.name} -> ID {led.id}")
+            logger.debug("Led: %s -> ID %s", led.name, led.id)
 
         logger.info(f"Discovered {len(controller_map)} controllers")
         await observer.emit("NewControllerMap", controller_map)
@@ -157,9 +169,9 @@ class SenseiClient:
         request = self.sensei_rpc_pb2.SubscribeRequest()
         if controller_ids:
             request.controller_ids.extend(controller_ids)
-            logger.info(f"Subscribing to events for controllers: {controller_ids}")
+            logger.debug("Subscribing to events for controllers: %s", controller_ids)
         else:
-            logger.info("Subscribing to all controller events")
+            logger.debug("Subscribing to all controller events")
 
         try:
             async for event in self.stub.SubscribeToEvents(request):
