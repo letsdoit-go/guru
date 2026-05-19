@@ -16,6 +16,13 @@ import logging
 logger = logging.getLogger("MAPPINGS")
 
 
+class MappingMode:
+    """This wraps around a list of mappings to provide more data"""
+    def __init__(self, mappings: list, mode: int = 0, ) -> None:
+        self.mode = mode
+        self.mappings = mappings
+
+
 class Control:
     """This mapping triggers an arbitrary callback. Useful for switching modes or emitting a specific signal"""
 
