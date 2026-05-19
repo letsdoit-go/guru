@@ -4,6 +4,7 @@ gRPC client for connecting to SenseiService and subscribing to hardware events.
 
 import asyncio
 import logging
+import time
 from pathlib import Path
 from typing import AsyncIterator
 
@@ -96,8 +97,15 @@ class SenseiClient:
                     break
                 # Emit event to observer
                 logger.debug("Received Sensei event: %s", event)
+                t_recv = time.perf_counter()
                 await observer.emit("UiEvent", event)
                 self._last_event_time = loop.time()
+                logger.debug(
+                    "ctrl=%d %s → UiEvent dispatch complete: %.2fms",
+                    event.controller_id,
+                    event.WhichOneof("event"),
+                    (time.perf_counter() - t_recv) * 1000,
+                )
                 
         except Exception as e:
             # Check if it's a gRPC error
