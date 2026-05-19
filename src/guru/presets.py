@@ -73,7 +73,7 @@ class PresetManager:
         observer.subscribe("LoadNextPreset", self.load_next_preset)
         observer.subscribe("LoadPresetByName", self.load_preset_by_name)
 
-    async def _handle_load_preset(self, preset: int) -> bool:
+    async def _handle_load_preset(self, preset: Preset) -> bool:
         return await self.load_preset(preset)
 
     def add_presets(self, presets: list[Preset]) -> None:
@@ -133,11 +133,24 @@ class PresetManager:
 
 
     async def load_preset_by_name(self, name: str) -> bool:
-        return await self.load_preset(
+        return await self.load_preset_by_index(
             self.preset_list.index(next(preset for preset in self.preset_list if preset.name == name))
         )
 
-    async def load_preset(self, index: int) -> bool:
+    async def load_preset(self, preset: Preset) -> bool:
+        try:
+            self._logger.debug("Loading preset %s %s", preset.name)
+
+            # Set plugin bypass states
+            await self._apply_initial_state(preset)
+            return True
+
+        except Exception as e:
+            self._logger.error(f"Failed to load preset '{preset.name}': {e}")
+            return False
+
+
+    async def load_preset_by_index(self, index: int) -> bool:
         """
         Load a specific preset by index.
 
@@ -194,7 +207,7 @@ class PresetManager:
 
         self._logger.debug("Preset switch pressed - switching to next preset")
         next_index = (self.current_preset_index + 1) % len(self.preset_list)
-        return await self.load_preset(next_index)  # Returns coroutine
+        return await self.load_preset_by_index(next_index)  # Returns coroutine
 
     async def load_previous_preset(self) -> bool:
         """
@@ -208,7 +221,7 @@ class PresetManager:
             return False
 
         prev_index = (self.current_preset_index - 1) % len(self.preset_list)
-        return await self.load_preset(prev_index)
+        return await self.load_preset_by_index(prev_index)
 
     def get_current_preset(self) -> Optional[Preset]:
         """
