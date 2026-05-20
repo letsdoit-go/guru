@@ -27,6 +27,10 @@ class MappingMode:
         self.mode = mode
         self.mappings = mappings
 
+    async def init(self) -> None:
+        for m in self.mappings:
+            await m.init()
+
 
 class Control:
     """This mapping triggers an arbitrary callback. Useful for switching modes or emitting a specific signal"""
