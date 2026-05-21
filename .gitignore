@@ -15,3 +15,4 @@ wheels/
 *_pb2_grpc.py
 CLAUDE.md
 todo.md
+/uv.lock
