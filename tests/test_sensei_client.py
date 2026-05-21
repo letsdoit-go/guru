@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, AsyncMock, patch, call
 @pytest.fixture
 def mock_observer():
     """Mock the observer module."""
-    with patch('glue_app.sensei_client.observer') as mock:
+    with patch('guru.sensei_client.observer') as mock:
         mock.emit = AsyncMock()
         yield mock
 
@@ -20,7 +20,7 @@ def mock_observer():
 @pytest.fixture
 def mock_grpc_aio():
     """Mock the grpc.aio module."""
-    with patch('glue_app.sensei_client.grpc.aio') as mock:
+    with patch('guru.sensei_client.grpc.aio') as mock:
         yield mock
 
 
@@ -30,15 +30,15 @@ def mock_proto_modules():
     mock_pb2 = MagicMock()
     mock_pb2_grpc = MagicMock()
 
-    with patch('glue_app.sensei_client.sensei_rpc_pb2', mock_pb2), \
-         patch('glue_app.sensei_client.sensei_rpc_pb2_grpc', mock_pb2_grpc):
+    with patch('guru.sensei_client.sensei_rpc_pb2', mock_pb2), \
+         patch('guru.sensei_client.sensei_rpc_pb2_grpc', mock_pb2_grpc):
         yield mock_pb2, mock_pb2_grpc
 
 
 @pytest.fixture
 def client(mock_observer, mock_grpc_aio, mock_proto_modules):
     """Create a SenseiClient with all dependencies mocked."""
-    from glue_app.sensei_client import SenseiClient
+    from guru.sensei_client import SenseiClient
     return SenseiClient("localhost:50051")
 
 
@@ -212,7 +212,7 @@ class TestStreamEvents:
         class FakeAioRpcError(Exception):
             pass
 
-        with patch('glue_app.sensei_client.grpc.aio.AioRpcError', FakeAioRpcError):
+        with patch('guru.sensei_client.grpc.aio.AioRpcError', FakeAioRpcError):
             grpc_error = FakeAioRpcError("gRPC error")
             with patch.object(client, 'subscribe_to_events', side_effect=grpc_error):
                 # Should not raise, just log

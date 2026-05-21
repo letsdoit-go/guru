@@ -259,7 +259,7 @@ class MappingManager:
     async def initialize_mappings(self, mappings: list) -> None:
         for mode in mappings:
             map = [
-                m for lst in mode.mappings for m in lst if not isinstance(m, Control)
+                m for m in mode.mappings if not isinstance(m, Control)
             ]
             if map == []:
                 logger.warning("There are no mappings specified.")
