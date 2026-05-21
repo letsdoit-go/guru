@@ -257,13 +257,13 @@ class MappingManager:
         self._multipress_mappings: dict[frozenset[str], object] = {}
 
     async def initialize_mappings(self, mappings: list) -> None:
+        all_mappings = []
         for mode in mappings:
-            map = [
-                m for m in mode.mappings if not isinstance(m, Control)
-            ]
+            map = [m for m in mode.mappings if not isinstance(m, Control)]
             if map == []:
                 logger.warning("There are no mappings specified.")
-            await observer.emit(signal="InitMapping", mappings=map)
+            all_mappings.extend(map)
+        await observer.emit(signal="InitMapping", mappings=all_mappings)
 
     def _cycle_mode(self) -> None:
         self._mode = (self._mode + 1) % len(self.mappings_by_controller_id)
