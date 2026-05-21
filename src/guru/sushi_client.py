@@ -117,6 +117,11 @@ class SushiClient:
             self.controller.parameters.set_parameter_value(state[0], state[1], state[2])
             for state in preset.parameter_states
         ]
+        if bypass_calls:
+            logger.debug("Applying preset: %s", bypass_calls)
+        if param_calls:
+            logger.debug("Applying preset: %s", param_calls)
+
         await asyncio.gather(*bypass_calls, *param_calls)
 
     async def _set_bypass_state_on_plugin(self, state: tuple) -> None:
