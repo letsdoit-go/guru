@@ -139,14 +139,14 @@ class PresetManager:
 
     async def load_preset(self, preset: Preset) -> bool:
         try:
-            self._logger.debug("Loading preset %s %s", preset.name)
+            self._logger.debug("Loading preset %s", preset.name)
 
             # Set plugin bypass states
             await self._apply_initial_state(preset)
             return True
 
         except Exception as e:
-            self._logger.error(f"Failed to load preset '{preset.name}': {e}")
+            self._logger.error("Failed to load preset %s: %s", preset.name, e)
             return False
 
 

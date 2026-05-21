@@ -204,10 +204,10 @@ MAPPINGS_3 = [
                 controller_name="ENC3S", cb=lambda _: observer.emit("ModeSwitch", 0)
             ),
             PluginParameterMapping(
-                track_name="track",
-                plugin_name="degrade",
-                parameter_name="quant",
-                controller_name="enc1",
+                track_name="TRACK",
+                plugin_name="Degrade",
+                parameter_name="Quant",
+                controller_name="ENC1",
                 parameter_label="Bits",
             ),
             PluginParameterMapping(
