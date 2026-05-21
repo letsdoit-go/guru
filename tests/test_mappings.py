@@ -688,3 +688,34 @@ async def test_initialize_multimode_mappings():
             if not isinstance(m, Control)
         ]
         mock_emit.assert_awaited_with(signal="InitMapping", mappings=expected)
+
+
+def test_register_single_mapping():
+    mgr = MappingManager()
+    mgr.controller_map = {"ENC1": 32}
+    mgr.register_mappings(MAPPINGS_1)
+    assert mgr.mappings_by_controller_id == [{32: MAPPINGS_1[0].mappings[0]}]
+
+
+def test_register_multi_mapping():
+    mgr = MappingManager()
+    mgr.controller_map = {
+        "ENC1": 32,
+        "ENC1S": 33,
+        "ENC2": 34,
+        "ENC2S": 35,
+        "ENC3": 36,
+        "ENC3S": 37,
+    }
+    expected = [
+        {32: MAPPINGS_2[0].mappings[3]},
+        {33: MAPPINGS_2[0].mappings[0]},
+        {34: MAPPINGS_2[0].mappings[4]},
+        {35: MAPPINGS_2[0].mappings[1]},
+        {36: MAPPINGS_2[0].mappings[5]},
+        {37: MAPPINGS_2[0].mappings[2]},
+    ]
+    mgr.register_mappings(MAPPINGS_2)
+    assert sorted(
+        mgr.mappings_by_controller_id, key=lambda d: sorted(d.keys())
+    ) == sorted(expected, key=lambda d: sorted(d.keys()))

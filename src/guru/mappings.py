@@ -311,11 +311,11 @@ class MappingManager:
         # Clearing existing mappings
         self.mappings_by_controller_id = []
 
-        for mode, map in enumerate(mappings):
+        for i, mode in enumerate(mappings):
             self.mappings_by_controller_id.append({})
-            for mapping in map:
+            for mapping in mode.mappings:
                 self._register_single_mapping(
-                    mapping, self.mappings_by_controller_id[mode]
+                    mapping, self.mappings_by_controller_id[i]
                 )
 
         logger.debug("all mappings registered successfully")
