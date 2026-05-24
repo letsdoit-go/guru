@@ -455,7 +455,7 @@ class MappingManager:
                 elif event_type == "range_ev":
                     await self._handle_range_event(event, mapping)
                 else:
-                    logger.warning(f"unknown event type: {event_type}")
+                    logger.warning("Unknown event type: %s", event_type)
 
     async def _run_combo_mapping(self, combo_mapping, event, event_type) -> None:
         for m in combo_mapping.mappings:
