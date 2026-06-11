@@ -8,9 +8,16 @@ returned by RefreshAllStates().
 
 import asyncio
 import time
-from typing import Callable
 from elkpy.sushicontroller import SushiController
 from . import observer
+from .protocols import (
+    ControlCallback,
+    Mapping,
+    Preprocessor,
+    PluginBypassEvent,
+    SushiPluginEvent,
+    SushiTrackEvent,
+)
 import logging
 
 logger = logging.getLogger("MAPPINGS")
@@ -27,15 +34,15 @@ class MappingMode:
         self.mode = mode
         self.mappings = mappings
 
-    async def init(self) -> None:
+    async def init(self, sc: SushiController) -> None:
         for m in self.mappings:
-            await m.init()
+            await m.init(sc)
 
 
 class Control:
     """This mapping triggers an arbitrary callback. Useful for switching modes or emitting a specific signal"""
 
-    def __init__(self, controller_name: str, cb: Callable | None):
+    def __init__(self, controller_name: str, cb: ControlCallback | None):
         self.controller_name = controller_name
         self.callback = cb
 
@@ -65,7 +72,7 @@ class TrackParameterMapping:
         track_name: str,
         parameter_name: str,
         controller_name: str | None = None,
-        preprocessor: Callable | None = None,
+        preprocessor: Preprocessor | None = None,
         parameter_label: str | None = None,
     ) -> None:
         self.track_name = track_name
@@ -100,7 +107,7 @@ class PluginParameterMapping:
         plugin_name: str,
         parameter_name: str,
         controller_name: str | None = None,
-        preprocessor: Callable | None = None,
+        preprocessor: Preprocessor | None = None,
         parameter_label: str | None = None,
     ):
         self.track_name = track_name
@@ -139,7 +146,7 @@ class SwitchMapping(PluginParameterMapping):
         controller_name: str,
         pressed_value: float,
         released_value: float,
-        preprocessor: Callable | None = None,
+        preprocessor: Preprocessor | None = None,
     ):
         super().__init__(
             track_name, plugin_name, parameter_name, controller_name, preprocessor
@@ -153,7 +160,7 @@ class BypassMapping(PluginParameterMapping):
         self,
         plugin_name: str,
         controller_name: str,
-        preprocessor: Callable | None = None,
+        preprocessor: Preprocessor | None = None,
     ):
         self.plugin_name = plugin_name
         self.controller_name = controller_name
@@ -238,17 +245,7 @@ class MappingManager:
         )
         self._accelerators: dict[int, AcceleratedEncoder] = {}
         self._mappings_initialized: bool = False
-        self.mappings_by_controller_id: list[
-            dict[
-                int,
-                PluginParameterMapping
-                | TrackParameterMapping
-                | SwitchMapping
-                | BypassMapping
-                | Control
-                | ComboMapping,
-            ]
-        ] = []
+        self.mappings_by_controller_id: list[dict[int, Mapping]] = []
         self.controller_map: dict | None = None
         self._mode = 0
         self._pressed: set[str] = set()
@@ -256,7 +253,7 @@ class MappingManager:
         self._multipress_detection_task: asyncio.Task | None = None
         self._multipress_mappings: dict[frozenset[str], object] = {}
 
-    async def initialize_mappings(self, mappings: list) -> None:
+    async def initialize_mappings(self, mappings: list[MappingMode]) -> None:
         all_mappings = []
         for mode in mappings:
             map = [m for m in mode.mappings if not isinstance(m, Control)]
@@ -289,7 +286,7 @@ class MappingManager:
         # await observer.emit("UpdateParameter", mapping.parameter_label)
         print(notification)
 
-    def register_mappings(self, mappings: list[PluginParameterMapping]) -> bool:
+    def register_mappings(self, mappings: list[MappingMode]) -> bool:
         """
         Register mappings and resolve controller names to IDs.
         Builds an internal dict of k, v where k is a controller ID gotten
@@ -323,14 +320,8 @@ class MappingManager:
 
     def _register_single_mapping(
         self,
-        mapping: PluginParameterMapping
-        | SwitchMapping
-        | TrackParameterMapping
-        | Control
-        | ComboMapping
-        | BypassMapping
-        | MultiSwitch,
-        mapping_dict_for_mode: dict,
+        mapping: Mapping | MultiSwitch,
+        mapping_dict_for_mode: dict[int, Mapping],
     ) -> None:
         assert self.controller_map is not None
 
@@ -561,29 +552,24 @@ class MappingManager:
     async def _emit_sushi_plugin_event(
         self, track_id: int, plugin_id: int, param_id: int, value: float
     ) -> None:
-        # send to sushi
-        await observer.emit(
-            "SushiPluginEvent",
-            {
-                "track_id": track_id,
-                "plugin_id": plugin_id,
-                "param_id": param_id,
-                "value": value,
-            },
-        )
+        event: SushiPluginEvent = {
+            "track_id": track_id,
+            "plugin_id": plugin_id,
+            "param_id": param_id,
+            "value": value,
+        }
+        await observer.emit("SushiPluginEvent", event)
 
     async def _emit_sushi_track_event(
         self, track_id: int, param_id: int, value: float
     ) -> None:
-        # send to sushi
-        await observer.emit(
-            "SushiTrackEvent",
-            {
-                "track_id": track_id,
-                "param_id": param_id,
-                "value": value,
-            },
-        )
+        event: SushiTrackEvent = {
+            "track_id": track_id,
+            "param_id": param_id,
+            "value": value,
+        }
+        await observer.emit("SushiTrackEvent", event)
 
     async def _emit_sushi_bypass_event(self, plugin_id: int) -> None:
-        await observer.emit("PluginBypassEvent", {"plugin_id": plugin_id})
+        event: PluginBypassEvent = {"plugin_id": plugin_id}
+        await observer.emit("PluginBypassEvent", event)
