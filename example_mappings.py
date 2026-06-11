@@ -3,8 +3,8 @@ from glue_app import observer
 from functools import partial 
 
 
-MAPPINGS = [
-    # Example: Map a pot to a plugin parameter
+MAPPINGS = [[
+    # Examplee: Map a pot to a plugin parameter
     PluginParameterMapping(
         track_name="TRACK",
         plugin_name="gain",
@@ -13,5 +13,5 @@ MAPPINGS = [
         preprocessor=lambda x: x,  # Optional: transform 0-1 to 0-100
     ),
     Control(controller_name="SW2", cb=partial(observer.emit, "ToggleLedRequest", 13))
-]
+]]
 

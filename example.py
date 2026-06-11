@@ -1,9 +1,9 @@
 import asyncio
 import logging
 
-from glue_app.app import GlueApp
-from old_param_mappings import MAPPINGS
-from glue_app import observer
+from guru.app import GlueApp
+from example_mappings import MAPPINGS
+from guru import observer
 
 
 async def main():

@@ -4,9 +4,10 @@ Sushi client wrapper for controlling audio engine parameters via elkpy.
 
 import logging
 from . import observer
-from elkpy import sushicontroller as sc
+from elkpy import async_sushicontroller as sc
 from elkpy import sushierrors
 from .presets import Preset
+import asyncio
 
 
 logger = logging.getLogger('SUSHI')
@@ -31,30 +32,30 @@ class SushiClient:
         observer.subscribe("PluginBypassEvent", cb=self._handle_plugin_bypass_event)
         observer.subscribe("InitMapping", cb=self._initialize_mappings)
         observer.subscribe("InitPreset", cb=self._initialize_preset)
-        observer.subscribe("SetInitialStateOnPlugin", cb=self._set_initial_state_on_plugin)
-        observer.subscribe("SetBypassStateOnPlugin", cb=self._set_bypass_state_on_plugin)
+        observer.subscribe("ApplyPresetState", cb=self.apply_preset_state)
         self.sushi_address = sushi_address
-        self.controller = None
+        self.controller = sc.SushiController(self.sushi_address)
 
-    async def connect(self) -> bool:
+    async def connect(self, subscribe_to_parameter_updates: bool = False) -> bool:
         """Establish connection to Sushi."""
         logger.info(f"Connecting to Sushi at {self.sushi_address}")
-        self.controller = sc.SushiController(self.sushi_address)
         version = ""
         while version == "":
             assert self.controller is not None
             try:
                 version = self.controller.system.get_sushi_version()
             except Exception:
-                logger.info("Sushi unavailable!")
+                logger.debug("Sushi unavailable!")
                 return False
-        logger.info("Connected to Sushi")
+        if subscribe_to_parameter_updates:
+            self.subscribe_to_parameter_updates()
+        logger.debug("Connected to Sushi")
         return True
 
     def disconnect(self) -> None:
         """Close the connection to Sushi."""
         if self.controller:
-            logger.info("Disconnecting from Sushi")
+            logger.debug("Disconnecting from Sushi")
             self.controller = None
 
     def subscribe_to_parameter_updates(self):
@@ -66,60 +67,76 @@ class SushiClient:
     async def _handle_param_update_notification(self, notif) -> None:
         await observer.emit("SushiParameterUpdate", notif)
 
-    def _handle_sushi_plugin_event(self, event: dict) -> None:
+    async def _handle_sushi_plugin_event(self, event: dict) -> None:
         if not self.controller:
             raise RuntimeError("Not connected to Sushi. Call connect() first.")
 
-        self.controller.parameters.set_parameter_value(
+        await self.controller.parameters.set_parameter_value(
             event["plugin_id"], event["param_id"], event["value"]
         )
         logger.debug(
-            f"Set parameter: track={event['track_id']}, processor={event['plugin_id']}, "
-            f"param={event['param_id']}, value={event['value']}"
+            "Set parameter: track=%s, processor=%s, "
+            "param=%s, value=%s", event['track_id'], event['plugin_id'], event['param_id'], event['value']
         )
 
-    def _handle_sushi_track_event(self, event: dict) -> None:
+    async def _handle_sushi_track_event(self, event: dict) -> None:
         if not self.controller:
             raise RuntimeError("Not connected to Sushi. Call connect() first.")
 
-        self.controller.parameters.set_parameter_value(
+        await self.controller.parameters.set_parameter_value(
             event["track_id"], event["param_id"], event["value"]
         )
         logger.debug(
-            f"Set parameter: track={event['track_id']}, "
-            f"param={event['param_id']}, value={event['value']}"
+            "Set parameter: track=%s, "
+            "param=%s, value=%s", event['track_id'], event['param_id'], event['value']
         )
 
-    def _handle_plugin_bypass_event(self, event: dict) -> None:
+    async def _handle_plugin_bypass_event(self, event: dict) -> None:
         if not self.controller:
             raise RuntimeError("Not connected to Sushi. Call connect() first.")
 
-        current_state = self.controller.audio_graph.get_processor_bypass_state(
+        current_state = await self.controller.audio_graph.get_processor_bypass_state(
             event["plugin_id"]
         )
-        self.controller.audio_graph.set_processor_bypass_state(
+        await self.controller.audio_graph.set_processor_bypass_state(
             event["plugin_id"], not current_state
         )
 
-    def _set_initial_state_on_plugin(self, state: tuple) -> None:
+    async def _set_initial_state_on_plugin(self, state: tuple) -> None:
         if not self.controller:
             raise RuntimeError("Not connected to Sushi. Call connect() first.")
 
-        self.controller.parameters.set_parameter_value(state[0], state[1], state[2])
+        await self.controller.parameters.set_parameter_value(state[0], state[1], state[2])
 
-    def _set_bypass_state_on_plugin(self, state: tuple) -> None:
+    async def apply_preset_state(self, preset: Preset) -> None:
+        bypass_calls = [
+            self.controller.audio_graph.set_processor_bypass_state(state[0], state[1])
+            for state in preset.bypass_states
+        ]
+        param_calls = [
+            self.controller.parameters.set_parameter_value(state[0], state[1], state[2])
+            for state in preset.parameter_states
+        ]
+        if bypass_calls:
+            logger.debug("Applying preset: %s", bypass_calls)
+        if param_calls:
+            logger.debug("Applying preset: %s", param_calls)
+
+        await asyncio.gather(*bypass_calls, *param_calls)
+
+    async def _set_bypass_state_on_plugin(self, state: tuple) -> None:
         if not self.controller:
             raise RuntimeError("Not connected to Sushi. Call connect() first.")
 
-        self.controller.audio_graph.set_processor_bypass_state(state[0], state[1])
+        await self.controller.audio_graph.set_processor_bypass_state(state[0], state[1])
 
-    def _initialize_preset(self, preset: Preset) -> None:
+    async def _initialize_preset(self, preset: Preset) -> None:
         """For an initial state specified in a preset, this method gets all ids from Sushi"""
         if not self.controller:
             raise RuntimeError("Not connected to Sushi. Call connect() first.")
 
-        preset.init(self.controller)
-        logger.info(f"Initialized preset {preset}")
+        await preset.init(self.controller)
+        logger.debug("Initialized preset %s", preset)
 
     async def _initialize_mappings(self, mappings: list) -> None:
         """
@@ -136,11 +153,11 @@ class SushiClient:
         if not self.controller:
             raise RuntimeError("Not connected to Sushi. Call connect() first.")
 
-        logger.info(f"Initializing {len(mappings)} mappings")
+        logger.debug("Initializing %s mappings", len(mappings))
         for i, mapping in enumerate(mappings):
             try:
-                mapping.init(self.controller)
-                logger.info(
+                await mapping.init(self.controller)
+                logger.debug(
                     f"Mapping {i + 1}: {mapping.controller_name} -> "
                     f"{getattr(mapping, 'track_name', '')}/{getattr(mapping, 'plugin_name', '-')}/{getattr(mapping, 'parameter_name', 'BYPASS')}"
                 )
@@ -156,7 +173,7 @@ class SushiClient:
 
         logger.info("All mappings initialized successfully")
 
-    def set_parameter_value(
+    async def set_parameter_value(
         self, track_id: int, processor_id: int, parameter_id: int, value: float
     ) -> None:
         """
@@ -171,10 +188,10 @@ class SushiClient:
         if not self.controller:
             raise RuntimeError("Not connected to Sushi. Call connect() first.")
 
-        self.controller.parameters.set_parameter_value(
+        await self.controller.parameters.set_parameter_value(
             processor_id, parameter_id, value
         )
         logger.debug(
-            f"Set parameter: track={track_id}, processor={processor_id}, "
-            f"param={parameter_id}, value={value}"
+            "Set parameter: track=%s, processor=%s, "
+            "param=%s, value=%s", track_id, processor_id, parameter_id, value
         )

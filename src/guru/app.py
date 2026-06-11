@@ -9,18 +9,22 @@ import asyncio
 import logging
 import signal
 import sys
+from pathlib import Path
 
 from .sensei_client import SenseiClient
 from .sushi_client import MappingError, SushiClient
 from .mappings import MappingManager
+from .presets import PresetManager
+from . import id_cache
 
-DEFAULT_SUSHI_ADDRESS = 'localhost:51051'
-if sys.platform == 'win32':
-    DEFAULT_SUSHI_ADDRESS = 'localhost:510'
+DEFAULT_SUSHI_ADDRESS = "localhost:51051"
+if sys.platform == "win32":
+    DEFAULT_SUSHI_ADDRESS = "localhost:510"
 
 
 class ShutdownSignalException(Exception):
     """Exception raised by the shutdown signal monitoring Task"""
+
     pass
 
 
@@ -34,28 +38,33 @@ def setup_logging(level: int = logging.INFO) -> None:
 
 
 class GlueApp:
+    """This is the main app class. An application must instantiate one of those.
+    It MUST also be initialized with self.initialize()"""
+
     def __init__(
         self,
         mappings: list | None = None,
         sensei_address: str = "localhost:50051",
         sushi_address: str = DEFAULT_SUSHI_ADDRESS,
         log_level: int = logging.INFO,
+        id_cache_path: str | None = None,
     ):
         """
-        Initialize the Pedal Glue App.
-
         Args:
             mappings: List of mapping objects (PluginParameterMapping, etc.)
             sensei_address: Address of the Sensei gRPC server
             sushi_address: Address of the Sushi gRPC server
             log_level: Logging level (e.g., logging.DEBUG, logging.INFO)
+            id_cache_path: Path to persist resolved name→ID cache across restarts
         """
         self.mappings = mappings or []
         self.sensei_address = sensei_address
         self.sushi_address = sushi_address
+        self._id_cache_path = Path(id_cache_path) if id_cache_path else None
+        self._id_cache: dict | None = None
 
         setup_logging(log_level)
-        self.logger = logging.getLogger('APP')
+        self.logger = logging.getLogger("APP")
         self._shutdown_event = asyncio.Event()
 
         # Check if mappings are defined
@@ -69,6 +78,7 @@ class GlueApp:
         self.sensei_client = SenseiClient(self.sensei_address)
         self.mapping_manager = MappingManager()
         self.sushi_client = SushiClient(self.sushi_address)
+        self.preset_manager = PresetManager()
 
     def _setup_signal_handlers(self):
         """Setup asyncio-compatible signal handlers."""
@@ -81,9 +91,10 @@ class GlueApp:
         for sig in (signal.SIGINT, signal.SIGTERM):
             loop.add_signal_handler(sig, signal_handler)
 
-    async def initialize(self) -> bool:
+    async def initialize(self, subscribe_to_parameter_updates: bool = False) -> bool:
         """
-        Initialize connections to Sensei and Sushi.
+        Initialize connections to Sensei and Sushi. This MUST be run before any calls to
+        Sensei or Sushi are made, typically directly after instantiation.
 
         Returns:
             True if initialization succeeded, False otherwise.
@@ -94,27 +105,36 @@ class GlueApp:
         self.logger.info("Initializing Sensei client")
         await self.sensei_client.connect()
 
-        # Get controller name->ID mapping with retry
+        # Get caontroller name->ID mapping with retry
         self.logger.info("Fetching controller states")
         while not self._shutdown_event.is_set():
             try:
                 await self.sensei_client.get_controller_map()
                 break
             except Exception:
-                self.logger.info("Sensei unavailable. Retrying in 5s...")
+                self.logger.debug("Sensei unavailable. Retrying in 1s...")
                 try:
-                    await asyncio.wait_for(
-                        self._shutdown_event.wait(), timeout=5.0
-                    )
+                    await asyncio.wait_for(self._shutdown_event.wait(), timeout=1.0)
                     return False  # Shutdown requested during retry
                 except asyncio.TimeoutError:
                     pass  # Continue retry
 
         # Connect to Sushi client
         self.logger.info("Initializing Sushi client")
-        if not await self.sushi_client.connect():
-            self.logger.error("Sushi does not seem to be running. Exiting now.")
-            return False
+        while not self._shutdown_event.is_set():
+            if not await self.sushi_client.connect(subscribe_to_parameter_updates=subscribe_to_parameter_updates):
+                try:
+                    await asyncio.wait_for(self._shutdown_event.wait(), timeout=1.0)
+                    return False  # Shutdown requested during retry
+                except asyncio.TimeoutError:
+                    self.logger.debug("Retrying Sushi connection...")
+                    pass  # Continue retry
+            else:
+                break
+
+        if self._id_cache_path:
+            self._id_cache = id_cache.load(self._id_cache_path)
+            id_cache.wrap_controller(self.sushi_client.controller, self._id_cache)
 
         # Initialize mappings with Sushi
         if self.mappings:
@@ -127,6 +147,11 @@ class GlueApp:
                 return False
 
         return True
+
+    def save_id_cache(self) -> None:
+        """Persist resolved IDs to disk. Call after all preset/mapping inits complete."""
+        if self._id_cache_path and self._id_cache is not None:
+            id_cache.save(self._id_cache_path, self._id_cache)
 
     async def run(self) -> int:
         """
@@ -156,19 +181,14 @@ class GlueApp:
     async def _wait_for_shutdown(self):
         """Wait for shutdown signal."""
         await self._shutdown_event.wait()
-        self.logger.info("Shutdown event triggered")
+        self.logger.debug("Shutdown event triggered")
         raise ShutdownSignalException
 
     async def stop(self) -> None:
         """Cleanup connections."""
-        self.logger.info("Cleaning up connections")
+        self.logger.debug("Cleaning up connections")
         if self.sensei_client:
             await self.sensei_client.disconnect()
         if self.sushi_client:
             self.sushi_client.disconnect()
-        self.logger.info("Shutdown complete")
-
-
-if __name__ == "__main__":
-    app = GlueApp()
-    sys.exit(app.run())
+        self.logger.debug("Shutdown complete")
