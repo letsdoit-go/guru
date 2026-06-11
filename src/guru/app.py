@@ -9,11 +9,13 @@ import asyncio
 import logging
 import signal
 import sys
+from pathlib import Path
 
 from .sensei_client import SenseiClient
 from .sushi_client import MappingError, SushiClient
 from .mappings import MappingManager
 from .presets import PresetManager
+from . import id_cache
 
 DEFAULT_SUSHI_ADDRESS = "localhost:51051"
 if sys.platform == "win32":
@@ -45,6 +47,7 @@ class GlueApp:
         sensei_address: str = "localhost:50051",
         sushi_address: str = DEFAULT_SUSHI_ADDRESS,
         log_level: int = logging.INFO,
+        id_cache_path: str | None = None,
     ):
         """
         Args:
@@ -52,10 +55,13 @@ class GlueApp:
             sensei_address: Address of the Sensei gRPC server
             sushi_address: Address of the Sushi gRPC server
             log_level: Logging level (e.g., logging.DEBUG, logging.INFO)
+            id_cache_path: Path to persist resolved name→ID cache across restarts
         """
         self.mappings = mappings or []
         self.sensei_address = sensei_address
         self.sushi_address = sushi_address
+        self._id_cache_path = Path(id_cache_path) if id_cache_path else None
+        self._id_cache: dict | None = None
 
         setup_logging(log_level)
         self.logger = logging.getLogger("APP")
@@ -126,6 +132,10 @@ class GlueApp:
             else:
                 break
 
+        if self._id_cache_path:
+            self._id_cache = id_cache.load(self._id_cache_path)
+            id_cache.wrap_controller(self.sushi_client.controller, self._id_cache)
+
         # Initialize mappings with Sushi
         if self.mappings:
             try:
@@ -137,6 +147,11 @@ class GlueApp:
                 return False
 
         return True
+
+    def save_id_cache(self) -> None:
+        """Persist resolved IDs to disk. Call after all preset/mapping inits complete."""
+        if self._id_cache_path and self._id_cache is not None:
+            id_cache.save(self._id_cache_path, self._id_cache)
 
     async def run(self) -> int:
         """

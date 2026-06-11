@@ -11,7 +11,7 @@ except ImportError:
 import asyncio
 import io
 import base64
-from functools import cache
+
 from PIL import Image, ImageDraw
 from . import observer
 import time
@@ -73,6 +73,7 @@ class DisplayManagerBase:
         observer.subscribe(event="DrawText", cb=self.render_text)
         self.last_write = 0
         self.render_throttle = 0
+        self._param_name_cache: dict[tuple[int, int], str] = {}
         self._init_display(chip_name)
 
     def _init_display(self, chip_name: str) -> None:
@@ -89,16 +90,18 @@ class DisplayManagerBase:
         raise NotImplementedError
 
     async def _handle_sushi_plugin_event(self, event) -> None:
-        name = self._get_param_name_by_event(event["plugin_id"], event["param_id"])
+        name = await self._get_param_name_by_event(event["plugin_id"], event["param_id"])
         return await self.render_text(f"{name}: {event['value']:.2f}")
 
-    @cache
-    def _get_param_name_by_event(self, proc_id: int, param_id: int) -> str:
-        info = self._sm.parameters.get_parameter_info(
-            processor_identifier=proc_id,
-            parameter_identifier=param_id,
-        )
-        return info.name
+    async def _get_param_name_by_event(self, proc_id: int, param_id: int) -> str:
+        key = (proc_id, param_id)
+        if key not in self._param_name_cache:
+            info = await self._sm.parameters.get_parameter_info(
+                processor_identifier=proc_id,
+                parameter_identifier=param_id,
+            )
+            self._param_name_cache[key] = info.name
+        return self._param_name_cache[key]
 
 
 class LumaDisplayManager(DisplayManagerBase):
