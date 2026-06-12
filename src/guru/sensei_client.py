@@ -5,7 +5,6 @@ gRPC client for connecting to SenseiService and subscribing to hardware events.
 import asyncio
 import logging
 import time
-from pathlib import Path
 from typing import AsyncIterator
 
 from .rpc import sensei_rpc_pb2, sensei_rpc_pb2_grpc

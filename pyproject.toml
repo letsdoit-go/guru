@@ -19,10 +19,10 @@ classifiers = [
       "Programming Language :: Python :: 3.13",
   ]
 
-dependencies = ["elkpy==1.4.0rc1", "grpcio", "grpcio-tools", "pillow"]
+dependencies = ["elkpy==1.4.0rc1", "grpcio~=1.62.1", "pillow"]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0.0", "pytest-cov>=4.0.0", "pytest-asyncio>=0.21.0", "pyright>=1.1"]
+dev = ["pytest>=7.0.0", "pytest-cov>=4.0.0", "pytest-asyncio>=0.21.0", "pyright>=1.1", "grpcio-tools~=1.62.1"]
 
 [tool.pytest.ini_options]
 testpaths = ["."]
