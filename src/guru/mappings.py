@@ -409,6 +409,9 @@ class MappingManager:
             mapping = self.mappings_by_controller_id[self._mode].get(
                 event.controller_id
             )
+            if not mapping:
+                return
+
             if event_type == "relative_ev" and hasattr(mapping, "value"):
                 if event.controller_id not in self._accelerators:
                     self._accelerators[event.controller_id] = AcceleratedEncoder()
