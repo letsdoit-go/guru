@@ -43,8 +43,10 @@ class SushiClient:
         self.sushi_address = sushi_address
         if transport_mode == TransportMode.IPC:
             self.controller = sc.SushiController(transport="IPC")
+            logger.info(f"Connecting to Sushi over IPC")
         else:
             self.controller = sc.SushiController(transport="RPC", address=sushi_address)
+            logger.info(f"Connecting to Sushi over RPC at {self.sushi_address}")
 
     async def connect(self, subscribe_to_parameter_updates: bool = False) -> bool:
         """Establish connection to Sushi."""
