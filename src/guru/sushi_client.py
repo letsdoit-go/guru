@@ -8,6 +8,7 @@ from elkpy import async_sushicontroller as sc
 from elkpy import sushierrors
 from .presets import Preset
 from enum import IntEnum
+from .protocols import Mapping, PluginBypassEvent, SushiPluginEvent, SushiTrackEvent
 import asyncio
 
 
@@ -76,7 +77,7 @@ class SushiClient:
     async def _handle_param_update_notification(self, notif) -> None:
         await observer.emit("SushiParameterUpdate", notif)
 
-    async def _handle_sushi_plugin_event(self, event: dict) -> None:
+    async def _handle_sushi_plugin_event(self, event: SushiPluginEvent) -> None:
         if not self.controller:
             raise RuntimeError("Not connected to Sushi. Call connect() first.")
 
@@ -88,7 +89,7 @@ class SushiClient:
             "param=%s, value=%s", event['track_id'], event['plugin_id'], event['param_id'], event['value']
         )
 
-    async def _handle_sushi_track_event(self, event: dict) -> None:
+    async def _handle_sushi_track_event(self, event: SushiTrackEvent) -> None:
         if not self.controller:
             raise RuntimeError("Not connected to Sushi. Call connect() first.")
 
@@ -100,7 +101,7 @@ class SushiClient:
             "param=%s, value=%s", event['track_id'], event['param_id'], event['value']
         )
 
-    async def _handle_plugin_bypass_event(self, event: dict) -> None:
+    async def _handle_plugin_bypass_event(self, event: PluginBypassEvent) -> None:
         if not self.controller:
             raise RuntimeError("Not connected to Sushi. Call connect() first.")
 
@@ -147,7 +148,7 @@ class SushiClient:
         await preset.init(self.controller)
         logger.debug("Initialized preset %s", preset)
 
-    async def _initialize_mappings(self, mappings: list) -> None:
+    async def _initialize_mappings(self, mappings: list[Mapping]) -> None:
         """
         Initialize all mappings by resolving track/plugin/parameter IDs. To point is to have 
         those IDs ready and not have to query Sushi for them every time.

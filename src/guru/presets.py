@@ -12,6 +12,7 @@ import time
 from elkpy.sushicontroller import SushiController
 
 from . import observer
+from .protocols import PluginState
 
 PRESET_LOADING_MIN_WAIT_S = 2
 
@@ -20,14 +21,14 @@ class Preset:
     def __init__(
         self,
         name: str,
-        initial_state: list | None = None,
+        initial_state: list[PluginState] | None = None,
         mode: int | None = None,
         label: str | None = None
     ) -> None:
         self.name = name
-        self.initial_state = initial_state if initial_state else []
-        self.parameter_states: list = []
-        self.bypass_states: list = []
+        self.initial_state: list[PluginState] = initial_state if initial_state else []
+        self.parameter_states: list[tuple[int, int, float]] = []
+        self.bypass_states: list[tuple[int, bool]] = []
         self.mode = mode
         self.label = label if label else name
         self._is_initialized: bool = False

@@ -13,7 +13,7 @@ from pathlib import Path
 
 from .sensei_client import SenseiClient
 from .sushi_client import MappingError, TransportMode, SushiClient
-from .mappings import MappingManager
+from .mappings import MappingManager, MappingMode
 from .presets import PresetManager
 from . import id_cache
 
@@ -42,7 +42,7 @@ class GlueApp:
 
     def __init__(
         self,
-        mappings: list | None = None,
+        mappings: list[MappingMode] | None = None,
         sensei_address: str = "localhost:50051",
         sushi_address: str = DEFAULT_SUSHI_ADDRESS,
         sushi_transport = TransportMode.IPC,
