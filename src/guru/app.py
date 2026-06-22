@@ -88,8 +88,9 @@ class GlueApp:
             self.logger.info("Shutdown signal received, stopping...")
             self._shutdown_event.set()
 
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, signal_handler)
+        if sys.platform != "win32":
+            for sig in (signal.SIGINT, signal.SIGTERM):
+                loop.add_signal_handler(sig, signal_handler)
 
     async def initialize(self, subscribe_to_parameter_updates: bool = False) -> bool:
         """
