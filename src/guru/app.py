@@ -123,7 +123,9 @@ class GlueApp:
         # Connect to Sushi client
         self.logger.info("Initializing Sushi client")
         while not self._shutdown_event.is_set():
-            if not await self.sushi_client.connect(subscribe_to_parameter_updates=subscribe_to_parameter_updates):
+            if not await self.sushi_client.connect(
+                subscribe_to_parameter_updates=subscribe_to_parameter_updates
+            ):
                 try:
                     await asyncio.wait_for(self._shutdown_event.wait(), timeout=1.0)
                     return False  # Shutdown requested during retry
@@ -169,15 +171,22 @@ class GlueApp:
             async with asyncio.TaskGroup() as tg:
                 tg.create_task(self.sensei_client.stream_events())
                 tg.create_task(self._wait_for_shutdown())
+                tg.create_task(self._refresh_sensei())
+
         except* ShutdownSignalException as eg:
             # TaskGroup wraps exceptions in ExceptionGroup
             self.logger.info("Shutting down...")
-            # for exc in eg.exceptions:
-            #     self.logger.error(f"Task error: {exc}", exc_info=exc)
         finally:
             await self.stop()
 
         return 0
+
+    async def _refresh_sensei(self) -> None:
+        """Triggers Sensei to fire events for all its api. Needed to get jack insertion statuses for instance"""
+        await asyncio.sleep(
+            1
+        )  # This sleep is to ensure that sensei_client is already streaming events
+        await self.sensei_client.refresh_all_states()
 
     async def _wait_for_shutdown(self):
         """Wait for shutdown signal."""
