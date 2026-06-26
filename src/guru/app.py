@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 from .sensei_client import SenseiClient
-from .sushi_client import MappingError, SushiClient
+from .sushi_client import MappingError, TransportMode, SushiClient
 from .mappings import MappingManager, MappingMode
 from .presets import PresetManager
 from . import id_cache
@@ -20,7 +20,6 @@ from . import id_cache
 DEFAULT_SUSHI_ADDRESS = "localhost:51051"
 if sys.platform == "win32":
     DEFAULT_SUSHI_ADDRESS = "localhost:510"
-
 
 class ShutdownSignalException(Exception):
     """Exception raised by the shutdown signal monitoring Task"""
@@ -46,6 +45,7 @@ class GlueApp:
         mappings: list[MappingMode] | None = None,
         sensei_address: str = "localhost:50051",
         sushi_address: str = DEFAULT_SUSHI_ADDRESS,
+        sushi_transport = TransportMode.IPC,
         log_level: int = logging.INFO,
         id_cache_path: str | None = None,
     ):
@@ -77,7 +77,7 @@ class GlueApp:
         # Initialize clients (but don't connect yet)
         self.sensei_client = SenseiClient(self.sensei_address)
         self.mapping_manager = MappingManager()
-        self.sushi_client = SushiClient(self.sushi_address)
+        self.sushi_client = SushiClient(sushi_transport, self.sushi_address)
         self.preset_manager = PresetManager()
 
     def _setup_signal_handlers(self):

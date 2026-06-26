@@ -7,6 +7,7 @@ from . import observer
 from elkpy import async_sushicontroller as sc
 from elkpy import sushierrors
 from .presets import Preset
+from enum import IntEnum
 from .protocols import Mapping, PluginBypassEvent, SushiPluginEvent, SushiTrackEvent
 import asyncio
 
@@ -18,10 +19,15 @@ class MappingError(Exception):
     pass
 
 
+class TransportMode(IntEnum):
+    IPC = 1
+    RPC = 2
+
+
 class SushiClient:
     """Wrapper for elkpy SushiController with mapping management."""
 
-    def __init__(self, sushi_address: str):
+    def __init__(self, transport_mode: TransportMode, sushi_address: str):
         """
         Initialize the Sushi client.
 
@@ -35,7 +41,12 @@ class SushiClient:
         observer.subscribe("InitPreset", cb=self._initialize_preset)
         observer.subscribe("ApplyPresetState", cb=self.apply_preset_state)
         self.sushi_address = sushi_address
-        self.controller = sc.SushiController(self.sushi_address)
+        if transport_mode == TransportMode.IPC:
+            self.controller = sc.SushiController(transport="IPC")
+            logger.info(f"Connecting to Sushi over IPC")
+        else:
+            self.controller = sc.SushiController(transport="RPC", address=sushi_address)
+            logger.info(f"Connecting to Sushi over RPC at {self.sushi_address}")
 
     async def connect(self, subscribe_to_parameter_updates: bool = False) -> bool:
         """Establish connection to Sushi."""
