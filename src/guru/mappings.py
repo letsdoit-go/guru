@@ -135,7 +135,7 @@ class PluginParameterMapping:
         )
 
 
-class SwitchMapping(PluginParameterMapping):
+class PluginSwitchMapping(PluginParameterMapping):
     """Mapping for those special cases where a plugin parameter must be switched to a specific value"""
 
     def __init__(
@@ -144,16 +144,33 @@ class SwitchMapping(PluginParameterMapping):
         plugin_name: str,
         parameter_name: str,
         controller_name: str,
-        pressed_value: float,
-        released_value: float,
+        value_A: float = 0.0,
+        value_B: float = 1.0,
         preprocessor: Preprocessor | None = None,
     ):
         super().__init__(
             track_name, plugin_name, parameter_name, controller_name, preprocessor
         )
-        self.pressed_value = pressed_value
-        self.released_value = released_value
+        self.values = (value_A, value_B)
+        self._current_value_idx = 0
 
+class TrackSwitchMapping(TrackParameterMapping):
+    """Mapping for those special cases where a plugin parameter must be switched to a specific value"""
+
+    def __init__(
+        self,
+        track_name: str,
+        parameter_name: str,
+        controller_name: str,
+        value_A: float = 0.0,
+        value_B: float = 1.0,
+        preprocessor: Preprocessor | None = None,
+    ):
+        super().__init__(
+            track_name, parameter_name, controller_name, preprocessor
+        )
+        self.values = (value_A, value_B)
+        self._current_value_idx = 0
 
 class BypassMapping(PluginParameterMapping):
     def __init__(
@@ -462,13 +479,10 @@ class MappingManager:
 
     async def _handle_toggle_event(self, event, mapping) -> None:
         """handle toggle/switch events."""
-        # determine value based on switch state
-        if isinstance(mapping, SwitchMapping):
-            value = (
-                mapping.pressed_value
-                if event.toggle_ev.value
-                else mapping.released_value
-            )
+        # toggling value between A and B
+        if isinstance(mapping, TrackSwitchMapping) or if isinstance(mapping, PluginParameterMapping):
+            mapping._current_value_idx = (mapping._current_value_idx + 1) % 2
+            value = self.values[mapping._current_value_idx]
         else:
             # for regular mappings, treat as binary 1.0/0.0
             value = 1.0 if event.toggle_ev.value else 0.0

@@ -9,7 +9,7 @@ description = "A library to help develop glue apps for the ElkAudio Stomp platfo
 authors = [{name = "Maxime Gendebien", email = "max@elk.audio"}]
 license = {file = "LICENSE"}
 readme = "README.md"
-requires-python = "<3.13"
+requires-python = ">=3.12, <3.13"
 classifiers = [
       "Development Status :: 3 - Alpha",
       "Intended Audience :: Developers",
