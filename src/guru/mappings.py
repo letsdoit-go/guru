@@ -480,7 +480,7 @@ class MappingManager:
     async def _handle_toggle_event(self, event, mapping) -> None:
         """handle toggle/switch events."""
         # toggling value between A and B
-        if isinstance(mapping, TrackSwitchMapping) or if isinstance(mapping, PluginParameterMapping):
+        if isinstance(mapping, TrackSwitchMapping) or isinstance(mapping, PluginParameterMapping):
             mapping._current_value_idx = (mapping._current_value_idx + 1) % 2
             value = self.values[mapping._current_value_idx]
         else:
