@@ -198,7 +198,7 @@ class ComboMapping:
 
     def __init__(
         self,
-        mappings: list[TrackParameterMapping | PluginParameterMapping | SwitchMapping],
+        mappings: list[Mapping],
         controller_name: str,
         parameter_label: str = "Combo",
         initial_value: float = 0.0,
