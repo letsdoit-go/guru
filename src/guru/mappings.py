@@ -482,7 +482,7 @@ class MappingManager:
         # toggling value between A and B
         if isinstance(mapping, TrackSwitchMapping) or isinstance(mapping, PluginParameterMapping):
             mapping._current_value_idx = (mapping._current_value_idx + 1) % 2
-            value = self.values[mapping._current_value_idx]
+            value = mapping.values[mapping._current_value_idx]
         else:
             # for regular mappings, treat as binary 1.0/0.0
             value = 1.0 if event.toggle_ev.value else 0.0
