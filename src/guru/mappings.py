@@ -298,20 +298,40 @@ class MappingManager:
     ) -> None:
         assert self.controller_map is not None
 
+        controller_id = None
         match mapping:
             case MultiSwitch():
-                self._multipress_mappings[frozenset(set(mapping.controller_names))] = (
-                    mapping.mapping
-                )
+                # A combo whose controllers aren't all present (e.g. one
+                # exists only on real hardware, not in a desktop mock) is
+                # simply unreachable, not a config error — skip it rather
+                # than crashing every other mapping in the same list.
+                if not all(name in self.controller_map for name in mapping.controller_names):
+                    missing = [name for name in mapping.controller_names if name not in self.controller_map]
+                    logger.warning(
+                        f"Skipping MultiSwitch combo {mapping.controller_names}: "
+                        f"controller(s) {missing} not found in available controllers "
+                        f"(present: {list(self.controller_map.keys())})"
+                    )
+                else:
+                    self._multipress_mappings[frozenset(set(mapping.controller_names))] = (
+                        mapping.mapping
+                    )
             case _:
                 controller_id = self.controller_map.get(mapping.controller_name)
                 if controller_id is None:
-                    raise ValueError(
-                        f"Controller '{mapping.controller_name}' not found in available controllers. "
-                        f"Available: {list(self.controller_map.keys())}"
+                    # A controller declared in sensei_config.json but not
+                    # implemented by whatever's currently serving it (e.g.
+                    # board-gui's desktop mock, which doesn't simulate
+                    # every hardware sensor) is a real gap between test and
+                    # target environments, not a reason to take down the
+                    # whole glue app — every OTHER mapping still deserves a
+                    # chance to register. Warn loudly and move on.
+                    logger.warning(
+                        f"Skipping mapping for controller '{mapping.controller_name}': not found "
+                        f"in available controllers. Available: {list(self.controller_map.keys())}"
                     )
-
-                mapping_dict_for_mode[controller_id] = mapping
+                else:
+                    mapping_dict_for_mode[controller_id] = mapping
 
         match mapping:
             case MultiSwitch():
